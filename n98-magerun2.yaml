@@ -1,0 +1,6 @@
+autoloaders:
+  Elgentos: %module%/src
+
+commands:
+  customCommands:
+    - Elgentos\IndexReindexPartialCommand
