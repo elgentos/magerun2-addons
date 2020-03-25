@@ -42,7 +42,7 @@ Usage:
 Example:
 
 ```bash
-magerun2 env:create               
+$ magerun2 env:create               
 env file found. Do you want to update it? [Y/n] n
 backend.frontName [admin] 
 crypt.key [] f66313dc5083044d76d0ac2f096a11ce
