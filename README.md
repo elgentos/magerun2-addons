@@ -25,6 +25,57 @@ Here's the easiest:
 Commands
 --------
 
+### Create env file
+
+Using this command, you can create a new basic `app/etc/env.php` file interactively, or update an existing one. If you update an existing one, it will walk through all existing keys to ask for a new value (or default to the current).
+
+```bash
+$ magerun2 env:create --help
+
+Description:
+  Create env file interactively [elgentos]
+
+Usage:
+  env:create
+```
+
+Example:
+
+```bash
+magerun2 env:create               
+env file found. Do you want to update it? [Y/n] n
+backend.frontName [admin] 
+crypt.key [] f66313dc5083044d76d0ac2f096a11ce
+db.table_prefix []              
+db.connection.default.host [localhost]         
+db.connection.default.dbname [] mydatabasename    
+db.connection.default.username [] myusername
+db.connection.default.password [] mypassword                                                                        
+db.connection.default.model [mysql4]                                                                      
+db.connection.default.engine [innodb] 
+db.connection.default.initStatements [SET NAMES utf8;] 
+db.connection.default.active [1] 
+resource.default_setup.connection [default] 
+x-frame-options [SAMEORIGIN] 
+MAGE_MODE [developer] 
+session.save [files] 
+cache_types.config [1]                                                                                    
+cache_types.layout [1]                                                                                    
+cache_types.block_html [1]                                                                                
+cache_types.collections [1]                                                                               
+cache_types.reflection [1]                                                                                
+cache_types.db_ddl [1]                                                                                    
+cache_types.eav [1]                                                                                       
+cache_types.customer_notification [1]                                                                     
+cache_types.config_integration [1]                                                                        
+cache_types.config_integration_api [1]                                                                    
+cache_types.full_page [1]                                                                                                                                                                                            
+cache_types.translate [1]                                                                                 
+cache_types.config_webservice [1] 
+cache_types.compiled_config [1] 
+install.date [Wed, 25 Mar 2020 10:42:22 UTC] 
+```
+
 ### Reindex Partially
 
 This command lets you reindex any indexer partially, as long as the indexer implements `executeList` correctly.

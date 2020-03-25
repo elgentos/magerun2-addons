@@ -47,7 +47,7 @@ class EnvCreateCommand extends AbstractMagentoCommand
             return 0;
         }
 
-        $updateEnvQuestion = new ConfirmationQuestion('<question>env file found. Do you want to update it?</question> <comment>[Y]</comment> ', true);
+        $updateEnvQuestion = new ConfirmationQuestion('<question>env file found. Do you want to update it?</question> <comment>[Y/n]</comment> ', true);
         if (file_exists('app/etc/env.php') && $questionHelper->ask($input, $output, $updateEnvQuestion)) {
             $env = include('app/etc/env.php');
         } else {
