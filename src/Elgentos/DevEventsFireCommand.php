@@ -3,7 +3,7 @@
 namespace Elgentos;
 
 use Exception;
-use Magento\Framework\App\ObjectManagerInterface;
+use Magento\Framework\ObjectManagerInterface;
 use Magento\Framework\Event\ManagerInterface as EventManagerInterface;
 use N98\Magento\Command\Indexer\AbstractIndexerCommand;
 use Symfony\Component\Console\Input\InputArgument;
