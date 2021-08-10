@@ -3,7 +3,7 @@
 namespace Elgentos;
 
 use Exception;
-use Magento\Framework\App\ObjectManager;
+use Magento\Framework\App\ObjectManagerInterface;
 use Magento\Framework\Event\ManagerInterface as EventManagerInterface;
 use N98\Magento\Command\Indexer\AbstractIndexerCommand;
 use Symfony\Component\Console\Input\InputArgument;
@@ -211,7 +211,7 @@ class DevEventsFireCommand extends AbstractIndexerCommand
         'wishlist_share',
     ];
     /**
-     * @var ObjectManager
+     * @var ObjectManagerInterface
      */
     private $objectManager;
 
@@ -220,7 +220,7 @@ class DevEventsFireCommand extends AbstractIndexerCommand
      */
     private $eventManager;
 
-    public function inject(ObjectManager $objectManager, EventManagerInterface $eventManager)
+    public function inject(ObjectManagerInterface $objectManager, EventManagerInterface $eventManager)
     {
         $this->eventManager = $eventManager;
         $this->objectManager = $objectManager;
