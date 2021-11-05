@@ -6,3 +6,4 @@ commands:
     - Elgentos\IndexReindexPartialCommand
     - Elgentos\EnvCreateCommand
     - Elgentos\DevEventsFireCommand
+    - Elgentos\GenerateXdebugSkipFilters

@@ -25,6 +25,20 @@ Here's the easiest:
 Commands
 --------
 
+#### Generate Xdebug Step Filter Configuration
+
+With this command, you can automatically fill the Xdebug Step Filters (Settings > PHP > Debug > Step Filters > Files) with all interceptors and proxies that are found in your installation.
+
+```bash
+$ magerun2 generate:xdebug-skip-filters
+
+Description:
+  Generate the Xdebug Skip Filter configuration [elgentos]
+
+Usage:
+  generate:xdebug-skip-filters
+```
+
 ### Create env file
 
 Using this command, you can create a new basic `app/etc/env.php` file interactively, or update an existing one. If you update an existing one, it will walk through all existing keys to ask for a new value (or default to the current).
