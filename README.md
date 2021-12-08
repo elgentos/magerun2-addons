@@ -30,7 +30,7 @@ Commands
 With this command, you can automatically fill the Xdebug Step Filters (Settings > PHP > Debug > Step Filters > Files) with all interceptors and proxies that are found in your installation.
 
 ```bash
-$ magerun2 generate:xdebug-skip-filters
+$ n98-magerun2.phar generate:xdebug-skip-filters
 
 Description:
   Generate the Xdebug Skip Filter configuration [elgentos]
@@ -44,7 +44,7 @@ Usage:
 Using this command, you can create a new basic `app/etc/env.php` file interactively, or update an existing one. If you update an existing one, it will walk through all existing keys to ask for a new value (or default to the current).
 
 ```bash
-$ magerun2 env:create --help
+$ n98-magerun2.phar env:create --help
 
 Description:
   Create env file interactively [elgentos]
@@ -56,7 +56,7 @@ Usage:
 Example:
 
 ```bash
-$ magerun2 env:create               
+$ n98-magerun2.phar env:create               
 env file found. Do you want to update it? [Y/n] n
 backend.frontName [admin] 
 crypt.key [] f66313dc5083044d76d0ac2f096a11ce
@@ -110,7 +110,7 @@ It is also possible to give command line arguments. These are '--event' (-e for 
 This command lets you reindex any indexer partially, as long as the indexer implements `executeList` correctly.
 
 ```bash
-$ magerun2 index:reindex-partial --help
+$ n98-magerun2.phar index:reindex-partial --help
                             
 Usage:
   index:reindex-partial <indexer> <ids> (<ids>)...
