@@ -20,7 +20,7 @@ Here's the easiest:
 
 3. It should be installed. To see that it was installed, check to see if one of the new commands is in there;
 
-        n98-magerun2.phar | grep elgentos
+        magerun2 | grep elgentos
 
 Commands
 --------
@@ -96,11 +96,11 @@ When building extensions, you often need to fire a certain event to trigger a fu
 
 You can instantiate an object and load a record into that object. You do this by using as parameter value `Magento\Catalog\Model\Product:1337`. This will instantiate the model `Magento\Catalog\Model\Product` and load entity `1337` in that model.
 
-    $ n98-magerun2.phar dev:events:fire
+    $ magerun2 dev:events:fire
 
 It is also possible to give command line arguments. These are '--event' (-e for shortcut) and '--parameters' (-p for shortcut). Parameters can contain multiple parameters, in which the various parameters should be stringed together with ';' and the name/value pair should be stringed together with '::'. Be sure to enclose this in double quotes.
 
-    $ n98-magerun2.phar dev:events:fire --event your_event_that_will_fire --parameters "product::Mage\Catalog\Model\Product:1337;testparam::testvalue"
+    $ magerun2 dev:events:fire --event your_event_that_will_fire --parameters "product::Mage\Catalog\Model\Product:1337;testparam::testvalue"
     Event your_event_that_will_fire has been fired with parameters;
      - object product: `Magento\Catalog\Model\Product` ID 1337
      - testparam: testvalue
