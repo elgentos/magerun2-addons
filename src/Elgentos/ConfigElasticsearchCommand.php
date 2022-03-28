@@ -72,18 +72,18 @@ class ConfigElasticsearchCommand extends AbstractMagentoCommand
 
         $elasticVersion = 7; // Default recommended version. When both implementation extensions are enabled, use 7
         $isElastic6Enabled = $this->moduleManager->isEnabled('Magento_Elasticsearch6');
-        $isElastic7Enabled = !$this->moduleManager->isEnabled('Magento_Elasticsearch7');
+        $isElastic7Enabled = $this->moduleManager->isEnabled('Magento_Elasticsearch7');
         if (
             !$isElastic6Enabled
-            && $isElastic7Enabled
+            && !$isElastic7Enabled
         ) {
             $errors['magento_elasticsearch6or7_is_not_enabled'] = [
                 'message' => 'Magento_Elasticsearch6 or Magento_Elasticsearch7 is not enabled - you need at least one of the two',
                 'fix' => 'bin/magento module:enable Magento_Elasticsearc7'
             ];
         } else if (
-            $this->moduleManager->isEnabled('Magento_Elasticsearch6')
-            && !$this->moduleManager->isEnabled('Magento_Elasticsearch7')
+            $isElastic6Enabled
+            && !$isElastic7Enabled
         ) {
             $elasticVersion = 6;
         }
