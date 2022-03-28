@@ -12,6 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
+use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Process\Process;
 
 class ConfigRabbitmqCommand extends AbstractMagentoCommand
@@ -174,15 +175,20 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
             $this->output->writeln('<info>No errors found, your RabbitMQ configuration is feeling awesome.</info>');
         }
 
-        $confirmation = new ConfirmationQuestion('<question>Do you want to run the update attributes consumers through RabbitMQ instead of Mysql? </question> <comment>[Y/n]</comment> ', true);
-        if ($questionHelper->ask($input, $output, $confirmation)) {
-            $consumers = [
-                'product_action_attribute.update',
-                'product_action_attribute.website.update',
-            ];
+        $consumerProcess = new Process(['bin/magento', 'queue:consumers:list']);
+        $consumerProcess->run();
+        $consumers = array_filter(array_map('trim', explode("\n", $consumerProcess->getOutput())));
+        $question = new ChoiceQuestion(
+            'Choose the consumers you want to run through Rabbitmq instead of MySQL (enter comma separated ID\'s for mutiple)',
+            $consumers
+        );
+        $question->setMultiselect(true);
+        $chosenConsumers = $questionHelper->ask($input, $output, $question);
 
+
+        if (count($chosenConsumers)) {
             $updateAttributesAmqp = new Dot([]);
-            foreach ($consumers as $consumer) {
+            foreach ($chosenConsumers as $consumer) {
                 $updateAttributesAmqp->set(sprintf('queue/topics/%s/publisher', $consumer), 'amqp-magento', '/');
                 $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/name', $consumer), 'amqp', '/');
                 $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/exchange', $consumer), 'magento', '/');
