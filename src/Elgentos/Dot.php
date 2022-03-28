@@ -46,14 +46,15 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param array|int|string $keys
      * @param mixed            $value
      */
-    public function add($keys, $value = null)
+    public function add($keys, $value = null, $delimiter = '.')
     {
         if (is_array($keys)) {
             foreach ($keys as $key => $value) {
-                $this->add($key, $value);
+                var_dump($key);
+                $this->add($key, $value, $delimiter);
             }
-        } elseif (is_null($this->get($keys))) {
-            $this->set($keys, $value);
+        } elseif (is_null($this->get($keys, null, $delimiter))) {
+            $this->set($keys, $value, $delimiter);
         }
     }
 
@@ -72,7 +73,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      *
      * @param array|int|string|null $keys
      */
-    public function clear($keys = null)
+    public function clear($keys = null, $delimiter = '.')
     {
         if (is_null($keys)) {
             $this->items = [];
@@ -83,7 +84,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
         $keys = (array) $keys;
 
         foreach ($keys as $key) {
-            $this->set($key, []);
+            $this->set($key, [], $delimiter);
         }
     }
 
@@ -252,7 +253,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  array|int|string|null $keys
      * @return bool
      */
-    public function isEmpty($keys = null)
+    public function isEmpty($keys = null, $delimiter = '.')
     {
         if (is_null($keys)) {
             return empty($this->items);
@@ -261,7 +262,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
         $keys = (array) $keys;
 
         foreach ($keys as $key) {
-            if (!empty($this->get($key))) {
+            if (!empty($this->get($key, $delimiter))) {
                 return false;
             }
         }
@@ -276,15 +277,15 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param array|string|self $key
      * @param array|self        $value
      */
-    public function merge($key, $value = [])
+    public function merge($key, $value = [], $delimiter = '.')
     {
         if (is_array($key)) {
             $this->items = array_merge($this->items, $key);
         } elseif (is_string($key)) {
-            $items = (array) $this->get($key);
+            $items = (array) $this->get($key, null, $delimiter);
             $value = array_merge($items, $this->getArrayItems($value));
 
-            $this->set($key, $value);
+            $this->set($key, $value, $delimiter);
         } elseif ($key instanceof self) {
             $this->items = array_merge($this->items, $key->all());
         }
@@ -299,15 +300,15 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param array|string|self $key
      * @param array|self        $value
      */
-    public function mergeRecursive($key, $value = [])
+    public function mergeRecursive($key, $value = [], $delimiter = '.')
     {
         if (is_array($key)) {
             $this->items = array_merge_recursive($this->items, $key);
         } elseif (is_string($key)) {
-            $items = (array) $this->get($key);
+            $items = (array) $this->get($key, null, $delimiter);
             $value = array_merge_recursive($items, $this->getArrayItems($value));
 
-            $this->set($key, $value);
+            $this->set($key, $value, $delimiter);
         } elseif ($key instanceof self) {
             $this->items = array_merge_recursive($this->items, $key->all());
         }
@@ -323,15 +324,15 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param array|string|self $key
      * @param array|self        $value
      */
-    public function mergeRecursiveDistinct($key, $value = [])
+    public function mergeRecursiveDistinct($key, $value = [], $delimiter = '.')
     {
         if (is_array($key)) {
             $this->items = $this->arrayMergeRecursiveDistinct($this->items, $key);
         } elseif (is_string($key)) {
-            $items = (array) $this->get($key);
+            $items = (array) $this->get($key, null, $delimiter);
             $value = $this->arrayMergeRecursiveDistinct($items, $this->getArrayItems($value));
 
-            $this->set($key, $value);
+            $this->set($key, $value, $delimiter);
         } elseif ($key instanceof self) {
             $this->items = $this->arrayMergeRecursiveDistinct($this->items, $key->all());
         }
@@ -369,7 +370,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  mixed           $default
      * @return mixed
      */
-    public function pull($key = null, $default = null)
+    public function pull($key = null, $default = null, $delimiter = '.')
     {
         if (is_null($key)) {
             $value = $this->all();
@@ -378,7 +379,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
             return $value;
         }
 
-        $value = $this->get($key, $default);
+        $value = $this->get($key, $default, $delimiter);
         $this->delete($key);
 
         return $value;
@@ -391,7 +392,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param mixed $key
      * @param mixed $value
      */
-    public function push($key, $value = null)
+    public function push($key, $value = null, $delimiter = '.')
     {
         if (is_null($value)) {
             $this->items[] = $key;
@@ -399,11 +400,11 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
             return;
         }
 
-        $items = $this->get($key);
+        $items = $this->get($key, null, $delimiter);
 
         if (is_array($items) || is_null($items)) {
             $items[] = $value;
-            $this->set($key, $items);
+            $this->set($key, $items, $delimiter);
         }
     }
 
@@ -414,15 +415,15 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param array|string|self $key
      * @param array|self        $value
      */
-    public function replace($key, $value = [])
+    public function replace($key, $value = [], $delimiter = '.')
     {
         if (is_array($key)) {
             $this->items = array_replace($this->items, $key);
         } elseif (is_string($key)) {
-            $items = (array) $this->get($key);
+            $items = (array) $this->get($key, null, $delimiter);
             $value = array_replace($items, $this->getArrayItems($value));
 
-            $this->set($key, $value);
+            $this->set($key, $value, $delimiter);
         } elseif ($key instanceof self) {
             $this->items = array_replace($this->items, $key->all());
         }
@@ -438,7 +439,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
     {
         if (is_array($keys)) {
             foreach ($keys as $key => $value) {
-                $this->set($key, $value);
+                $this->set($key, $value, $delimiter);
             }
 
             return;
@@ -484,10 +485,10 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  int    $options
      * @return string
      */
-    public function toJson($key = null, $options = 0)
+    public function toJson($key = null, $options = 0, $delimiter = '.')
     {
         if (is_string($key)) {
-            return json_encode($this->get($key), $options);
+            return json_encode($this->get($key), $options, $delimiter);
         }
 
         $options = $key === null ? 0 : $key;
@@ -518,9 +519,9 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  int|string $key
      * @return mixed
      */
-    public function offsetGet($key)
+    public function offsetGet($key, $delimiter = '.')
     {
-        return $this->get($key);
+        return $this->get($key, null, $delimiter);
     }
 
     /**
@@ -529,7 +530,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param int|string|null $key
      * @param mixed           $value
      */
-    public function offsetSet($key, $value)
+    public function offsetSet($key, $value, $delimiter = '.')
     {
         if (is_null($key)) {
             $this->items[] = $value;
@@ -537,7 +538,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
             return;
         }
 
-        $this->set($key, $value);
+        $this->set($key, $value, $delimiter);
     }
 
     /**
@@ -562,9 +563,9 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  int|string|null $key
      * @return int
      */
-    public function count($key = null)
+    public function count($key = null, $delimiter = '.')
     {
-        return count($this->get($key));
+        return count($this->get($key, null, $delimiter));
     }
 
     /*

@@ -115,56 +115,21 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
             ]
         ]);
 
-        $updateAttributesAmqp = [
-            [
-                'topics' => [
-                    'product_action_attribute.update' => [
-                        'publisher' => 'amqp-magento'
-                    ],
-                    'product_action_attribute.website.update' => [
-                        'publisher' => 'amqp-magento'
-                    ]
-                ],
-                'config' => [
-                    'publishers' => [
-                        'product_action_attribute.update' => [
-                            'connections' => [
-                                'amqp' => [
-                                    'name' => 'amqp',
-                                    'exchange' => 'magento',
-                                    'disabled' => false
-                                ],
-                                'db' => [
-                                    'name' => 'db',
-                                    'disabled' => true
-                                ]
-                            ]
-                        ],
-                        'product_action_attribute.website.update' => [
-                            'connections' => [
-                                'amqp' => [
-                                    'name' => 'amqp',
-                                    'exchange' => 'magento',
-                                    'disabled' => false
-                                ],
-                                'db' => [
-                                    'name' => 'db',
-                                    'disabled' => true
-                                ]
-                            ]
-                        ]
-                    ]
-                ],
-                'consumers' => [
-                    'product_action_attribute.update' => [
-                        'connection' => 'amqp'
-                    ],
-                    'product_action_attribute.website.update' => [
-                        'connection' => 'amqp'
-                    ]
-                ]
-            ]
+        $consumers = [
+            'product_action_attribute.update',
+            'product_action_attribute.website.update',
         ];
+
+        $updateAttributesAmqp = new Dot([]);
+        foreach ($consumers as $consumer) {
+            $updateAttributesAmqp->set(sprintf('queue/topics/%s/publisher', $consumer), 'amqp-magento', '/');
+            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/name', $consumer), 'amqp', '/');
+            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/exchange', $consumer), 'magento', '/');
+            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/disabled', $consumer), false, '/');
+            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/db/name', $consumer), 'db', '/');
+            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/db/disabled', $consumer), true, '/');
+            $updateAttributesAmqp->set(sprintf('queue/consumers/%s/connection', $consumer), 'amqp', '/');
+        }
 
         if ($this->isHypernode()) {
             $envSettings->set('lock.config.path', '/data/web/shared/var/queue_lock');
@@ -195,10 +160,6 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
 
             $confirmation = new ConfirmationQuestion('<question>We can try to automatically fix these errors by running the following commands. Is that okay? </question> <comment>[Y/n]</comment> ', true);
             if ($questionHelper->ask($input, $output, $confirmation)) {
-                $confirmation = new ConfirmationQuestion('<question>Do you want to run the update attributes consumers through RabbitMQ instead of Mysql? </question> <comment>[Y/n]</comment> ', true);
-                if ($questionHelper->ask($input, $output, $confirmation)) {
-                    $envSettings->add($updateAttributesAmqp);
-                }
                 foreach ($errors as $key => $error) {
                     if (isset($error['fix'])) {
                         $this->output->writeln(sprintf('Attempting to fix error ID %s by running %s', $key, $error['fix']));
@@ -227,6 +188,12 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
             }
         } else {
             $this->output->writeln('<info>No errors found, your RabbitMQ configuration is feeling awesome.</info>');
+        }
+
+        $confirmation = new ConfirmationQuestion('<question>Do you want to run the update attributes consumers through RabbitMQ instead of Mysql? </question> <comment>[Y/n]</comment> ', true);
+        if ($questionHelper->ask($input, $output, $confirmation)) {
+            $actualEnvSettings = array_merge_recursive($actualEnvSettings->all(), $updateAttributesAmqp->all());
+            file_put_contents('app/etc/env.php', '<?php return ' . $this->var_export($actualEnvSettings, true) . ';');
         }
 
         return 0;
