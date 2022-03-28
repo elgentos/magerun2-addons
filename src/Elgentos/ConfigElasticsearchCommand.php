@@ -97,7 +97,7 @@ class ConfigElasticsearchCommand extends AbstractMagentoCommand
             $this->output->writeln('<comment>If Elasticsearch is disabled, please run hypernode-systemctl settings elasticsearch_enabled True</comment>');
             $this->output->writeln('<comment>Make sure the Elasticsearch is correct. You need version ' . $elasticVersion . '. The current version is:</comment>');
             shell_exec('hypernode-systemctl settings elasticsearch_version');
-            $this->output->writeln('<comment>The version does not match, please run hypernode-systemctl settings elasticsearch_version ' . $elasticVersion . '.x</comment>');
+            $this->output->writeln('<comment>If the versions do not match, please run hypernode-systemctl settings elasticsearch_version ' . $elasticVersion . '.x</comment>');
         }
 
         // Check config settings
