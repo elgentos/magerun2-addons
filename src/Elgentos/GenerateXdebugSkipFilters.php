@@ -2,9 +2,6 @@
 
 namespace Elgentos;
 
-use Elgentos\Dot;
-use RecursiveArrayIterator;
-use RecursiveIteratorIterator;
 use N98\Magento\Command\AbstractMagentoCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;

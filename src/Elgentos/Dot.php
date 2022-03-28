@@ -92,7 +92,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      *
      * @param array|int|string $keys
      */
-    public function delete($keys)
+    public function delete($keys, $delimiter = '.')
     {
         $keys = (array) $keys;
 
@@ -104,7 +104,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
             }
 
             $items = &$this->items;
-            $segments = explode('.', $key);
+            $segments = explode($delimiter, $key);
             $lastSegment = array_pop($segments);
 
             foreach ($segments as $segment) {
@@ -169,7 +169,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  mixed           $default
      * @return mixed
      */
-    public function get($key = null, $default = null)
+    public function get($key = null, $default = null, $delimiter = '.')
     {
         if (is_null($key)) {
             return $this->items;
@@ -179,13 +179,13 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
             return $this->items[$key];
         }
 
-        if (strpos($key, '.') === false) {
+        if (strpos($key, $delimiter) === false) {
             return $default;
         }
 
         $items = $this->items;
 
-        foreach (explode('.', $key) as $segment) {
+        foreach (explode($delimiter, $key) as $segment) {
             if (!is_array($items) || !$this->exists($items, $segment)) {
                 return $default;
             }
@@ -219,7 +219,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  array|int|string $keys
      * @return bool
      */
-    public function has($keys)
+    public function has($keys, $delimiter = '.')
     {
         $keys = (array) $keys;
 
@@ -234,7 +234,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
                 continue;
             }
 
-            foreach (explode('.', $key) as $segment) {
+            foreach (explode($delimiter, $key) as $segment) {
                 if (!is_array($items) || !$this->exists($items, $segment)) {
                     return false;
                 }
@@ -434,7 +434,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param array|int|string $keys
      * @param mixed            $value
      */
-    public function set($keys, $value = null)
+    public function set($keys, $value = null, $delimiter = '.')
     {
         if (is_array($keys)) {
             foreach ($keys as $key => $value) {
@@ -446,7 +446,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
 
         $items = &$this->items;
 
-        foreach (explode('.', $keys) as $key) {
+        foreach (explode($delimiter, $keys) as $key) {
             if (!isset($items[$key]) || !is_array($items[$key])) {
                 $items[$key] = [];
             }

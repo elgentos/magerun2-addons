@@ -3,6 +3,7 @@
 namespace Elgentos;
 
 use Exception;
+use Elgentos\Dot;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Module\Manager;
 use N98\Magento\Command\AbstractMagentoCommand;
@@ -95,26 +96,97 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
             $this->output->writeln('<comment>If Rabbitmq is disabled, please run hypernode-systemctl settings rabbitmq_enabled True</comment>');
         }
 
-        // Check config settings
-//        $settings = [
-//
-//        ];
-//
-//        if ($this->isHypernode()) {
-//
-//        }
-//
-//        foreach ($settings as $setting => $value) {
-//            $settingPath = sprintf($setting, $elasticVersion);
-//            $expectedValue = sprintf($value, $elasticVersion);
-//            $actualValue = $this->config->getValue($settingPath);
-//            if ($actualValue !== $expectedValue) {
-//                $errors[$settingPath . '_incorrect'] = [
-//                    'message' => sprintf('The value for %s (%s) does not match %s', $settingPath, $actualValue, $expectedValue),
-//                    'fix' => sprintf('bin/magento config:set %s %s --lock-env', $settingPath, $expectedValue)
-//                ];
-//            }
-//        }
+        // Check env settings
+        $envSettings = new Dot([
+            'lock' => [
+                'provider' => 'file',
+                'config' => [
+                    'path' => 'var/queue_lock'
+                ]
+            ],
+            'cron_consumers_runner' => [
+                'cron_run' => true,
+                'max_messages' => 1000,
+                'consumers' => []
+            ],
+            'queue' => [
+                'amqp' => [
+                    'host' => 'rabbitmq',
+                    'port' => '5672',
+                    'user' => 'guest',
+                    'password' => 'guest',
+                    'virtualhost' => '/'
+                ],
+                'consumers_wait_for_messages' => 0,
+                'topics' => [
+                    'product_action_attribute.update' => [
+                        'publisher' => 'amqp-magento'
+                    ],
+                    'product_action_attribute.website.update' => [
+                        'publisher' => 'amqp-magento'
+                    ]
+                ],
+                'config' => [
+                    'publishers' => [
+                        'product_action_attribute.update' => [
+                            'connections' => [
+                                'amqp' => [
+                                    'name' => 'amqp',
+                                    'exchange' => 'magento',
+                                    'disabled' => false
+                                ],
+                                'db' => [
+                                    'name' => 'db',
+                                    'disabled' => true
+                                ]
+                            ]
+                        ],
+                        'product_action_attribute.website.update' => [
+                            'connections' => [
+                                'amqp' => [
+                                    'name' => 'amqp',
+                                    'exchange' => 'magento',
+                                    'disabled' => false
+                                ],
+                                'db' => [
+                                    'name' => 'db',
+                                    'disabled' => true
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'consumers' => [
+                    'product_action_attribute.update' => [
+                        'connection' => 'amqp'
+                    ],
+                    'product_action_attribute.website.update' => [
+                        'connection' => 'amqp'
+                    ]
+                ]
+            ]
+        ]);
+
+        if ($this->isHypernode()) {
+            $envSettings->set('lock.config.path', '/data/web/shared/var/queue_lock');
+            $envSettings->set('queue.amqp.host', 'localhost');
+        }
+
+        $actualEnvSettings = include('app/etc/env.php');
+        $actualEnvSettings = new Dot($actualEnvSettings);
+
+        foreach ($envSettings->flatten('/') as $settingPath => $expectedValue) {
+            $actualValue = $actualEnvSettings->get($settingPath, null, '/');
+            if ($actualValue !== $expectedValue) {
+                if (is_array($expectedValue)) {
+                    $expectedValue = serialize($expectedValue);
+                    $actualValue = serialize($actualValue);
+                }
+                $errors[$settingPath . '_incorrect'] = [
+                    'message' => sprintf('The value for %s (%s) does not match %s', $settingPath, $actualValue, $expectedValue)
+                ];
+            }
+        }
 
         if (count($errors)) {
             $errorMessages = array_map(function ($error) {
@@ -125,8 +197,23 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
             $confirmation = new ConfirmationQuestion('<question>We can try to automatically fix these errors by running the following commands. Is that okay? </question> <comment>[Y/n]</comment> ', true);
             if ($questionHelper->ask($input, $output, $confirmation)) {
                 foreach ($errors as $key => $error) {
-                    $this->output->writeln(sprintf('Attempting to fix error ID %s by running %s', $key, $error['fix'])) ;
-                    $process = new Process(explode(' ', $error['fix']));
+                    if (isset($error['fix'])) {
+                        $this->output->writeln(sprintf('Attempting to fix error ID %s by running %s', $key, $error['fix']));
+                        $process = new Process(explode(' ', $error['fix']));
+                        $process->run();
+                        if (!$process->isSuccessful()) {
+                            $this->output->writeln('<error>' . $process->getOutput() . '</error>');
+                        } else {
+                            $this->output->writeln('<info>' . $process->getOutput() . '</info>');
+                        }
+                    }
+                }
+                $this->output->writeln('Fixing settings in env.php');
+                $actualEnvSettings->set($envSettings->all(), null, '/');
+                file_put_contents('app/etc/env.php', '<?php return ' . $this->var_export($actualEnvSettings->all(), true) . ';');
+                $confirmation = new ConfirmationQuestion('<question>Do you want to run bin/magento app:config:import now? </question> <comment>[Y/n]</comment> ', true);
+                if ($questionHelper->ask($input, $output, $confirmation)) {
+                    $process = new Process(['bin/magento', 'app:config:import']);
                     $process->run();
                     if (!$process->isSuccessful()) {
                         $this->output->writeln('<error>' . $process->getOutput() . '</error>');
@@ -145,5 +232,17 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
     private function isHypernode(): bool
     {
         return (bool) `which hypernode-systemctl`;
+    }
+
+    private function var_export($expression, $return=FALSE) {
+        $export = var_export($expression, TRUE);
+        $patterns = [
+            "/array \(/" => '[',
+            "/^([ ]*)\)(,?)$/m" => '$1]$2',
+            "/=>[ ]?\n[ ]+\[/" => '=> [',
+            "/([ ]*)(\'[^\']+\') => ([\[\'])/" => '$1$2 => $3',
+        ];
+        $export = preg_replace(array_keys($patterns), array_values($patterns), $export);
+        if ((bool)$return) return $export; else echo $export;
     }
 }
