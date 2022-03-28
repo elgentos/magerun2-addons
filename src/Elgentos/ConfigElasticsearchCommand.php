@@ -92,12 +92,12 @@ class ConfigElasticsearchCommand extends AbstractMagentoCommand
         // Find out how to fetch the process result. It looks like it's async, can't get it
         // through Symfony/Process or shell_exec() or exec()
         if ($this->isHypernode()) {
-            $this->output->writeln('<notice>Make sure Elasticsearch is enabled on this Hypernode. The current setting is:</notice>');
+            $this->output->writeln('<comment>Make sure Elasticsearch is enabled on this Hypernode. The current setting is:</comment>');
             shell_exec('hypernode-systemctl settings elasticsearch_enabled');
-            $this->output->writeln('<notice>If Elasticsearch is disabled, please run hypernode-systemctl settings elasticsearch_enabled True</notice>');
-            $this->output->writeln('<notice>Make sure the Elasticsearch is correct. You need version ' . $elasticVersion . '. The current version is:</notice>');
+            $this->output->writeln('<comment>If Elasticsearch is disabled, please run hypernode-systemctl settings elasticsearch_enabled True</comment>');
+            $this->output->writeln('<comment>Make sure the Elasticsearch is correct. You need version ' . $elasticVersion . '. The current version is:</comment>');
             shell_exec('hypernode-systemctl settings elasticsearch_version');
-            $this->output->writeln('<notice>The version does not match, please run hypernode-systemctl settings elasticsearch_version ' . $elasticVersion . '.x</notice>');
+            $this->output->writeln('<comment>The version does not match, please run hypernode-systemctl settings elasticsearch_version ' . $elasticVersion . '.x</comment>');
         }
 
         // Check config settings
