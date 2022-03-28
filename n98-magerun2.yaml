@@ -6,3 +6,4 @@ commands:
     - Elgentos\IndexReindexPartialCommand
     - Elgentos\DevEventsFireCommand
     - Elgentos\GenerateXdebugSkipFilters
+    - Elgentos\ConfigElasticsearchCommand
