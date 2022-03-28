@@ -7,3 +7,4 @@ commands:
     - Elgentos\DevEventsFireCommand
     - Elgentos\GenerateXdebugSkipFilters
     - Elgentos\ConfigElasticsearchCommand
+    - Elgentos\ConfigRabbitmqCommand
