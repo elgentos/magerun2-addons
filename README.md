@@ -43,7 +43,7 @@ Usage:
 
 Using this command you can check and optionally configure the RabbitMQ configuration in Magento. Default values might be opinionated.
 
-It will also ask you which consumers you want to run throught RabbitMQ instead of MySQL. By default only `async.operations.all` runs through RabbitMQ.
+It will also ask you which consumers you want to run using RabbitMQ instead of MySQL. By default only `async.operations.all` runs through RabbitMQ.
 
 ```bash
 $ magerun2 config:rabbitmq
@@ -53,6 +53,22 @@ Description:
 
 Usage:
   config:rabbitmq
+```
+
+#### Configure Redis
+
+Using this command you can check and optionally configure the Redis configuration in Magento. Default values might be opinionated.
+
+If you are running Magento 2.3.5 and upwards, it will ask you whether you want to enable L2 cache. You can read about the L2 cache [in the Magento devdocs](https://devdocs.magento.com/guides/v2.4/config-guide/cache/two-level-cache.html).
+
+```bash
+$ magerun2 config:redis
+
+Description:
+  Check and optionally configure the Redis configuration
+
+Usage:
+  config:redis
 ```
 
 #### Generate Xdebug Step Filter Configuration

@@ -3,6 +3,7 @@
 namespace Elgentos;
 
 use Elgentos\Dot;
+use Brick\VarExporter\VarExporter;
 use Exception;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Module\Manager;
@@ -159,7 +160,7 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
                 }
                 $this->output->writeln('Fixing settings in env.php');
                 $actualEnvSettings->set($envSettings->all(), null, '/');
-                file_put_contents('app/etc/env.php', '<?php return ' . $this->var_export($actualEnvSettings->all(), true) . ';');
+                file_put_contents('app/etc/env.php', '<?php return ' . VarExporter::export($actualEnvSettings->all()) . ';');
                 $confirmation = new ConfirmationQuestion('<question>Do you want to run bin/magento app:config:import now? </question> <comment>[Y/n]</comment> ', true);
                 if ($questionHelper->ask($input, $output, $confirmation)) {
                     $process = new Process(['bin/magento', 'app:config:import']);
@@ -201,7 +202,7 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
             $array1 = $actualEnvSettings->all();
             $array2 = $updateAttributesAmqp->all();
             $actualEnvSettings = $this->array_merge_recursive_distinct( $array1, $array2);
-            file_put_contents('app/etc/env.php', '<?php return ' . $this->var_export($actualEnvSettings, true) . ';');
+            file_put_contents('app/etc/env.php', '<?php return ' . VarExporter::export($actualEnvSettings) . ';');
         }
 
         return 0;
@@ -210,18 +211,6 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
     private function isHypernode(): bool
     {
         return (bool) `which hypernode-systemctl`;
-    }
-
-    private function var_export($expression, $return=FALSE) {
-        $export = var_export($expression, TRUE);
-        $patterns = [
-            "/array \(/" => '[',
-            "/^([ ]*)\)(,?)$/m" => '$1]$2',
-            "/=>[ ]?\n[ ]+\[/" => '=> [',
-            "/([ ]*)(\'[^\']+\') => ([\[\'])/" => '$1$2 => $3',
-        ];
-        $export = preg_replace(array_keys($patterns), array_values($patterns), $export);
-        if ((bool)$return) return $export; else echo $export;
     }
 
     private function array_merge_recursive_distinct(array &$array1, array &$array2)

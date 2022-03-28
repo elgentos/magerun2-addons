@@ -8,3 +8,4 @@ commands:
     - Elgentos\GenerateXdebugSkipFilters
     - Elgentos\ConfigElasticsearchCommand
     - Elgentos\ConfigRabbitmqCommand
+    - Elgentos\ConfigRedisCommand
