@@ -4,6 +4,5 @@ autoloaders:
 commands:
   customCommands:
     - Elgentos\IndexReindexPartialCommand
-    - Elgentos\EnvCreateCommand
     - Elgentos\DevEventsFireCommand
     - Elgentos\GenerateXdebugSkipFilters
