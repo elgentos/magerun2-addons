@@ -53,7 +53,7 @@ Usage:
   generate:xdebug-skip-filters
 ```
 
-### Dispatch/fire a Magento event ###
+#### Dispatch/fire a Magento event ###
 
 When building extensions, you often need to fire a certain event to trigger a function. With this command, you can choose one of the default events that can be found in the Magento core, or type in the name of another (custom) event. The command will also ask for any parameters.
 
@@ -68,7 +68,7 @@ It is also possible to give command line arguments. These are '--event' (-e for 
      - object product: `Magento\Catalog\Model\Product` ID 1337
      - testparam: testvalue
 
-### Reindex Partially
+#### Reindex Partially
 
 This command lets you reindex any indexer partially, as long as the indexer implements `executeList` correctly.
 
