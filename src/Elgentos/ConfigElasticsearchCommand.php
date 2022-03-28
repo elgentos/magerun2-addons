@@ -92,12 +92,12 @@ class ConfigElasticsearchCommand extends AbstractMagentoCommand
         // Find out how to fetch the process result. It looks like it's async, can't get it
         // through Symfony/Process or shell_exec() or exec()
         if ($this->isHypernode()) {
-            $this->output->writeln('Make sure Elasticsearch is enabled on this Hypernode. The current setting is:');
+            $this->output->writeln('<notice>Make sure Elasticsearch is enabled on this Hypernode. The current setting is:</notice>');
             shell_exec('hypernode-systemctl settings elasticsearch_enabled');
-            $this->output->writeln('If Elasticsearch is disabled, please run hypernode-systemctl settings elasticsearch_enabled True');
-            $this->output->writeln('Make sure the Elasticsearch is correct. You need version ' . $elasticVersion . '. The current version is:');
+            $this->output->writeln('<notice>If Elasticsearch is disabled, please run hypernode-systemctl settings elasticsearch_enabled True</notice>');
+            $this->output->writeln('<notice>Make sure the Elasticsearch is correct. You need version ' . $elasticVersion . '. The current version is:</notice>');
             shell_exec('hypernode-systemctl settings elasticsearch_version');
-            $this->output->writeln('The version does not match, please run hypernode-systemctl settings elasticsearch_version ' . $elasticVersion . '.x');
+            $this->output->writeln('<notice>The version does not match, please run hypernode-systemctl settings elasticsearch_version ' . $elasticVersion . '.x</notice>');
         }
 
         // Check config settings
@@ -110,9 +110,16 @@ class ConfigElasticsearchCommand extends AbstractMagentoCommand
             'catalog/search/engine' => 'elasticsearch%d'
         ];
 
+        if ($this->isHypernode()) {
+            $settings['catalog/search/elasticsearch%d_server_hostname'] = 'localhost';
+        }
+
         if ($this->hasElasticsuite()) {
             $settings['catalog/search/engine'] = 'elasticsuite';
             $settings['smile_elasticsuite_core_base_settings/es_client/servers'] = 'elasticsearch%d:9200';
+            if ($this->isHypernode()) {
+                $settings['smile_elasticsuite_core_base_settings/es_client/servers'] = 'localhost:9200';
+            }
         }
 
         foreach ($settings as $setting => $value) {
