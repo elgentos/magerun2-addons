@@ -43,6 +43,8 @@ Usage:
 
 Using this command you can check and optionally configure the RabbitMQ configuration in Magento. Default values might be opinionated.
 
+It will also ask you which consumers you want to run throught RabbitMQ instead of MySQL. By default only `async.operations.all` runs through RabbitMQ.
+
 ```bash
 $ magerun2 config:rabbitmq
 
