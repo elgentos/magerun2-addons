@@ -39,6 +39,20 @@ Usage:
   config:elasticsearch
 ```
 
+#### Configure RabbitMQ
+
+Using this command you can check and optionally configure the RabbitMQ configuration in Magento. Default values might be opinionated.
+
+```bash
+$ magerun2 config:rabbitmq
+
+Description:
+  Check and optionally configure the RabbitMQ configuration
+
+Usage:
+  config:rabbitmq
+```
+
 #### Generate Xdebug Step Filter Configuration
 
 With this command, you can automatically fill the Xdebug Step Filters (Settings > PHP > Debug > Step Filters > Files) with all interceptors and proxies that are found in your installation.
