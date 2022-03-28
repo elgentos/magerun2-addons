@@ -2,8 +2,8 @@
 
 namespace Elgentos;
 
-use Exception;
 use Elgentos\Dot;
+use Exception;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Module\Manager;
 use N98\Magento\Command\AbstractMagentoCommand;
@@ -115,22 +115,6 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
             ]
         ]);
 
-        $consumers = [
-            'product_action_attribute.update',
-            'product_action_attribute.website.update',
-        ];
-
-        $updateAttributesAmqp = new Dot([]);
-        foreach ($consumers as $consumer) {
-            $updateAttributesAmqp->set(sprintf('queue/topics/%s/publisher', $consumer), 'amqp-magento', '/');
-            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/name', $consumer), 'amqp', '/');
-            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/exchange', $consumer), 'magento', '/');
-            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/disabled', $consumer), false, '/');
-            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/db/name', $consumer), 'db', '/');
-            $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/db/disabled', $consumer), true, '/');
-            $updateAttributesAmqp->set(sprintf('queue/consumers/%s/connection', $consumer), 'amqp', '/');
-        }
-
         if ($this->isHypernode()) {
             $envSettings->set('lock.config.path', '/data/web/shared/var/queue_lock');
             $envSettings->set('queue.amqp.host', 'localhost');
@@ -192,7 +176,25 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
 
         $confirmation = new ConfirmationQuestion('<question>Do you want to run the update attributes consumers through RabbitMQ instead of Mysql? </question> <comment>[Y/n]</comment> ', true);
         if ($questionHelper->ask($input, $output, $confirmation)) {
-            $actualEnvSettings = array_merge_recursive($actualEnvSettings->all(), $updateAttributesAmqp->all());
+            $consumers = [
+                'product_action_attribute.update',
+                'product_action_attribute.website.update',
+            ];
+
+            $updateAttributesAmqp = new Dot([]);
+            foreach ($consumers as $consumer) {
+                $updateAttributesAmqp->set(sprintf('queue/topics/%s/publisher', $consumer), 'amqp-magento', '/');
+                $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/name', $consumer), 'amqp', '/');
+                $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/exchange', $consumer), 'magento', '/');
+                $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/amqp/disabled', $consumer), false, '/');
+                $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/db/name', $consumer), 'db', '/');
+                $updateAttributesAmqp->set(sprintf('queue/config/publishers/%s/connections/db/disabled', $consumer), true, '/');
+                $updateAttributesAmqp->set(sprintf('queue/consumers/%s/connection', $consumer), 'amqp', '/');
+            }
+
+            $array1 = $actualEnvSettings->all();
+            $array2 = $updateAttributesAmqp->all();
+            $actualEnvSettings = $this->array_merge_recursive_distinct( $array1, $array2);
             file_put_contents('app/etc/env.php', '<?php return ' . $this->var_export($actualEnvSettings, true) . ';');
         }
 
@@ -214,5 +216,20 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
         ];
         $export = preg_replace(array_keys($patterns), array_values($patterns), $export);
         if ((bool)$return) return $export; else echo $export;
+    }
+
+    private function array_merge_recursive_distinct(array &$array1, array &$array2)
+    {
+        $merged = $array1;
+
+        foreach ($array2 as $key => &$value) {
+            if (is_array($value) && isset ($merged [$key]) && is_array($merged [$key])) {
+                $merged [$key] = $this->array_merge_recursive_distinct($merged [$key], $value);
+            } else {
+                $merged [$key] = $value;
+            }
+        }
+
+        return $merged;
     }
 }
