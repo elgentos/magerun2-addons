@@ -79,7 +79,7 @@ class ConfigElasticsearchCommand extends AbstractMagentoCommand
         ) {
             $errors['magento_elasticsearch6or7_is_not_enabled'] = [
                 'message' => 'Magento_Elasticsearch6 or Magento_Elasticsearch7 is not enabled - you need at least one of the two',
-                'fix' => 'bin/magento module:enable Magento_Elasticsearc7'
+                'fix' => 'bin/magento module:enable Magento_Elasticsearch7'
             ];
         } else if (
             $isElastic6Enabled
