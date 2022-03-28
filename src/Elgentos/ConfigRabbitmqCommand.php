@@ -69,7 +69,8 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
             'Magento_AmqpStore',
             'Magento_MessageQueue',
             'Magento_Webapi',
-            'Magento_WebapiAsync'
+            'Magento_WebapiAsync',
+            'Magento_MysqlMq'
         ];
         foreach ($modules as $module) {
             if (!$this->moduleManager->isEnabled($module)) {
@@ -78,13 +79,6 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
                     'fix' => 'bin/magento module:enable ' . $module
                 ];
             }
-        }
-
-        if ($this->moduleManager->isEnabled('Magento_MysqlMq')) {
-            $errors['magento_mysqlmq_is_enabled'] = [
-                'message' => 'Magento_MysqlMq is enabled',
-                'fix' => 'bin/magento module:disable Magento_MysqlMq'
-            ];
         }
 
         // Hypernode specific configuration
@@ -118,6 +112,11 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
                     'virtualhost' => '/'
                 ],
                 'consumers_wait_for_messages' => 0,
+            ]
+        ]);
+
+        $updateAttributesAmqp = [
+            [
                 'topics' => [
                     'product_action_attribute.update' => [
                         'publisher' => 'amqp-magento'
@@ -165,7 +164,7 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
                     ]
                 ]
             ]
-        ]);
+        ];
 
         if ($this->isHypernode()) {
             $envSettings->set('lock.config.path', '/data/web/shared/var/queue_lock');
@@ -196,6 +195,10 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
 
             $confirmation = new ConfirmationQuestion('<question>We can try to automatically fix these errors by running the following commands. Is that okay? </question> <comment>[Y/n]</comment> ', true);
             if ($questionHelper->ask($input, $output, $confirmation)) {
+                $confirmation = new ConfirmationQuestion('<question>Do you want to run the update attributes consumers through RabbitMQ instead of Mysql? </question> <comment>[Y/n]</comment> ', true);
+                if ($questionHelper->ask($input, $output, $confirmation)) {
+                    $envSettings->add($updateAttributesAmqp);
+                }
                 foreach ($errors as $key => $error) {
                     if (isset($error['fix'])) {
                         $this->output->writeln(sprintf('Attempting to fix error ID %s by running %s', $key, $error['fix']));
