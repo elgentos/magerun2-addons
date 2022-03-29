@@ -16,6 +16,12 @@ use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Process\Process;
 
+if (!function_exists('str_contains')) {
+    function str_contains($haystack, $needle) {
+        return $needle !== '' && mb_strpos($haystack, $needle) !== false;
+    }
+}
+
 class ConfigRabbitmqCommand extends AbstractMagentoCommand
 {
     /**
@@ -84,12 +90,14 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
         }
 
         // Hypernode specific configuration
-        // Find out how to fetch the process result. It looks like it's async, can't get it
-        // through Symfony/Process or shell_exec() or exec()
         if ($this->isHypernode()) {
-            $this->output->writeln('<comment>Make sure Rabbitmq is enabled on this Hypernode. The current setting is:</comment>');
-            shell_exec('hypernode-systemctl settings rabbitmq_enabled');
-            $this->output->writeln('<comment>If Rabbitmq is disabled, please run hypernode-systemctl settings rabbitmq_enabled True</comment>');
+            $rabbitMqEnabled = trim(shell_exec('hypernode-systemctl settings rabbitmq_enabled 2>&1'));
+            if (!str_contains($rabbitMqEnabled, 'True')) {
+                $errors['rabbitmq_is_disabled'] = [
+                    'message' => 'Rabbitmq is disabled',
+                    'fix' => 'hypernode-systemctl settings rabbitmq_enabled True'
+                ];
+            }
         }
 
         // Check env settings

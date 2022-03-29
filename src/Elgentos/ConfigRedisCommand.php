@@ -74,12 +74,14 @@ class ConfigRedisCommand extends AbstractMagentoCommand
         $errors = [];
 
         // Hypernode specific configuration
-        // Find out how to fetch the process result. It looks like it's async, can't get it
-        // through Symfony/Process or shell_exec() or exec()
         if ($this->isHypernode()) {
-            $this->output->writeln('<comment>Make sure Redis is a persisent instance. The current setting is:</comment>');
-            shell_exec('hypernode-systemctl settings redis_persistent_instance');
-            $this->output->writeln('<comment>If this setting is disabled, please run hypernode-systemctl settings redis_persistent_instance True</comment>');
+            $redisPersistentInstance = trim(shell_exec('hypernode-systemctl settings redis_persistent_instance 2>&1'));
+            if (!str_contains($redisPersistentInstance, 'True')) {
+                $errors['redis_persistent_instance_is_disabled'] = [
+                    'message' => 'Redis persistent instance is disabled',
+                    'fix' => 'hypernode-systemctl settings redis_persistent_instance True'
+                ];
+            }
         }
 
         $actualEnvSettings = include('app/etc/env.php');

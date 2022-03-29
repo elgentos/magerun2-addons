@@ -79,16 +79,26 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
         }
 
         // Hypernode specific configuration
-        // Find out how to fetch the process result. It looks like it's async, can't get it
-        // through Symfony/Process or shell_exec() or exec()
         if ($this->isHypernode()) {
-            $this->output->writeln('<comment>Make sure Varnish is set to version 4.0. The current setting is:</comment>');
-            shell_exec('hypernode-systemctl settings varnish_version');
-            $this->output->writeln('<comment>If Varnish is not set to version 4, please run hypernode-systemctl settings varnish_version 4.0</comment>');
-
-            $this->output->writeln('<comment>Make sure Varnish is enabled on this Hypernode. The current setting is:</comment>');
-            shell_exec('hypernode-systemctl settings varnish_enabled');
-            $this->output->writeln('<comment>If Varnish is disabled, please run hypernode-systemctl settings varnish_enabled True</comment>');
+            $varnishEnabled = trim(shell_exec('hypernode-systemctl settings varnish_enabled 2>&1'));
+            if (!str_contains($varnishEnabled, 'True')) {
+                $errors['varnish_is_disabled'] = [
+                    'message' => 'Varnish is disabled',
+                    'fix' => 'hypernode-systemctl settings varnish_enabled True'
+                ];
+            }
+            $varnishVersion = trim(shell_exec('hypernode-systemctl settings varnish_version 2>&1'));
+            preg_match('/\d/', $varnishVersion, $matches);
+            $currentVarnishVersion = 0;
+            if (isset($matches[0])) {
+                $currentVarnishVersion = (int) $matches[0];
+            }
+            if ($currentVarnishVersion !== $varnishVersion) {
+                $errors['varnish_wrong_version'] = [
+                    'message' => sprintf('You are running Varnish version %s, you need version %s.', $currentVarnishVersion, $varnishVersion),
+                    'fix' => sprintf('hypernode-systemctl settings varnish_version %s.x', $varnishVersion)
+                ];
+            }
 
             // Check vhosts
             $vhosts = json_decode(shell_exec('hypernode-manage-vhosts --list --format=json'), true);
