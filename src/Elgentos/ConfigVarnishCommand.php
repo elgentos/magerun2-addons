@@ -85,7 +85,7 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
                 [4,6],
                 4
             );
-            $chosenVarnishVersion = $this->questionHelper->ask($input, $output, $question);
+            $chosenVarnishVersion = (int) $this->questionHelper->ask($input, $output, $question);
 
             $varnishEnabled = trim(shell_exec('hypernode-systemctl settings varnish_enabled 2>&1'));
             if (!str_contains($varnishEnabled, 'True')) {
