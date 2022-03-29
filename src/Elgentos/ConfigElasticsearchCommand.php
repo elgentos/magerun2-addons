@@ -157,7 +157,7 @@ class ConfigElasticsearchCommand extends AbstractMagentoCommand
             }, array_column($errors, 'message'));
             $this->output->writeln(implode(PHP_EOL, $errorMessages));
 
-            $confirmation = new ConfirmationQuestion('<question>We can try to automatically fix these errors by running the following commands. Is that okay? </question> <comment>[Y/n]</comment> ', true);
+            $confirmation = new ConfirmationQuestion('<question>We can try to automatically fix these errors. Is that okay? </question> <comment>[Y/n]</comment> ', true);
             if ($questionHelper->ask($input, $output, $confirmation)) {
                 foreach ($errors as $key => $error) {
                     $this->output->writeln(sprintf('Attempting to fix error ID %s by running %s', $key, $error['fix'])) ;

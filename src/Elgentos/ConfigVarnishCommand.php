@@ -160,9 +160,21 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
                 $this->output->writeln('Fixing settings in env.php');
                 $actualEnvSettings->set($envSettings->all(), null, '/');
                 file_put_contents('app/etc/env.php', '<?php return ' . VarExporter::export($actualEnvSettings->all()) . ';');
+
                 $confirmation = new ConfirmationQuestion('<question>Do you want to run bin/magento app:config:import now? </question> <comment>[Y/n]</comment> ', true);
                 if ($this->questionHelper->ask($input, $output, $confirmation)) {
                     $process = new Process(['bin/magento', 'app:config:import']);
+                    $process->run();
+                    if (!$process->isSuccessful()) {
+                        $this->output->writeln('<error>' . $process->getOutput() . '</error>');
+                    } else {
+                        $this->output->writeln('<info>' . $process->getOutput() . '</info>');
+                    }
+                }
+
+                foreach ($errors as $key => $error) {
+                    $this->output->writeln(sprintf('Attempting to fix error ID %s by running %s', $key, $error['fix'])) ;
+                    $process = new Process(explode(' ', $error['fix']));
                     $process->run();
                     if (!$process->isSuccessful()) {
                         $this->output->writeln('<error>' . $process->getOutput() . '</error>');
