@@ -71,6 +71,20 @@ Usage:
   config:redis
 ```
 
+#### Configure Varnish
+
+Using this command you can check and optionally configure the Varnish configuration in Magento. Default values might be opinionated.
+
+```bash
+$ magerun2 config:varnish
+
+Description:
+  Check and optionally configure the Varnish configuration
+
+Usage:
+  config:varnish
+```
+
 #### Generate Xdebug Step Filter Configuration
 
 With this command, you can automatically fill the Xdebug Step Filters (Settings > PHP > Debug > Step Filters > Files) with all interceptors and proxies that are found in your installation.

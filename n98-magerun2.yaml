@@ -9,3 +9,4 @@ commands:
     - Elgentos\ConfigElasticsearchCommand
     - Elgentos\ConfigRabbitmqCommand
     - Elgentos\ConfigRedisCommand
+    - Elgentos\ConfigVarnishCommand

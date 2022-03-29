@@ -1,0 +1,181 @@
+<?php
+
+namespace Elgentos;
+
+use Elgentos\Dot;
+use Brick\VarExporter\VarExporter;
+use Exception;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Framework\Module\Manager;
+use N98\Magento\Command\AbstractMagentoCommand;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Question\Question;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
+use Symfony\Component\Console\Question\ChoiceQuestion;
+use Symfony\Component\Process\Process;
+
+class ConfigVarnishCommand extends AbstractMagentoCommand
+{
+    /**
+     * @var InputInterface
+     */
+    protected $input;
+    /**
+     * @var OutputInterface
+     */
+    protected $output;
+    private Manager $moduleManager;
+    private ProductMetadataInterface $productMetaData;
+    private ScopeConfigInterface $config;
+    private $questionHelper;
+
+    protected function configure()
+    {
+        $this
+            ->setName('config:varnish')
+            ->setDescription('Check and optionally configure the Varnish configuration [elgentos]');
+    }
+
+    /**
+     * @param Manager $moduleManager
+     * @param ProductMetadataInterface $productMetadata
+     * @param ScopeConfigInterface $config
+     * @return void
+     */
+    public function inject(Manager $moduleManager, ProductMetadataInterface $productMetadata, ScopeConfigInterface $config)
+    {
+        $this->moduleManager = $moduleManager;
+        $this->productMetaData = $productMetadata;
+        $this->config = $config;
+    }
+
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @return int|void
+     * @throws Exception
+     */
+    protected function execute(InputInterface $input, OutputInterface $output)
+    {
+        $this->input = $input;
+        $this->output = $output;
+        $this->questionHelper = $this->getHelperSet()->get('question');
+
+        $this->detectMagento($output);
+        if (!$this->initMagento()) {
+            return 0;
+        }
+
+        // Checks
+        $errors = [];
+        if (!$this->moduleManager->isEnabled('Magento_PageCache')) {
+            $errors['magento_pagecache_is_not_enabled'] = [
+                'message' => 'Magento_PageCache is not enabled',
+                'fix' => 'bin/magento module:enable Magento_PageCache'
+            ];
+        }
+
+        // Hypernode specific configuration
+        // Find out how to fetch the process result. It looks like it's async, can't get it
+        // through Symfony/Process or shell_exec() or exec()
+        if ($this->isHypernode()) {
+            $this->output->writeln('<comment>Make sure Varnish is set to version 4.0. The current setting is:</comment>');
+            shell_exec('hypernode-systemctl settings varnish_version');
+            $this->output->writeln('<comment>If Varnish is not set to version 4, please run hypernode-systemctl settings varnish_version 4.0</comment>');
+
+            $this->output->writeln('<comment>Make sure Varnish is enabled on this Hypernode. The current setting is:</comment>');
+            shell_exec('hypernode-systemctl settings varnish_enabled');
+            $this->output->writeln('<comment>If Varnish is disabled, please run hypernode-systemctl settings varnish_enabled True</comment>');
+
+            // Check vhosts
+            $vhosts = json_decode(shell_exec('hypernode-manage-vhosts --list --format=json'), true);
+            $stores = json_decode(shell_exec('magerun2 sys:store:config:base-url:list --format=json'), true);
+            foreach ($stores as $store) {
+                $parsedUrl = parse_url($store['secure_baseurl']);
+                foreach ($vhosts as $domain => $vhost) {
+                    if ($parsedUrl['host'] === $domain && !$vhost['varnish']) {
+                        $errors['vhost_' . $domain . '_not_configured_for_varnish'] = [
+                            'message' => 'The vhost ' . $domain . ' is not configured for Varnish',
+                            'fix' => 'hypernode-manage-vhosts ' . $domain . ' --varnish'
+                        ];
+                    }
+                }
+            }
+        }
+
+        if ($this->isHypernode()) {
+            // Generate and activate VCL
+            shell_exec('bin/magento varnish:vcl:generate > /data/web/varnish.vcl');
+            shell_exec('sed -i \'11,17d\' /data/web/varnish.vcl'); // Remove probe
+            shell_exec('varnishadm vcl.load mag2 /data/web/varnish.vcl');
+            shell_exec('varnishadm vcl.use mag2');
+            shell_exec('varnishadm vcl.discard boot');
+            shell_exec('varnishadm vcl.discard hypernode');
+
+            // Set http-cache-hosts to automatically flush Varnish when Magento cache flushes
+            shell_exec('bin/magento setup:config:set --http-cache-hosts=127.0.0.1:6081 -n');
+        }
+
+        $actualEnvSettings = include('app/etc/env.php');
+        $actualEnvSettings = new Dot($actualEnvSettings);
+
+        // Check env settings
+        $envSettings = new Dot([
+            'system/default/full_page_cache/caching_application' => '2',
+            'system/default/system/full_page_cache/varnish/access_list' => 'localhost',
+            'system/default/system/full_page_cache/varnish/backend_host' => 'localhost',
+            'system/default/system/full_page_cache/varnish/backend_port' => '8080',
+            'system/default/system/full_page_cache/varnish/grace_period' => '300',
+        ]);
+
+        foreach ($envSettings->flatten('/') as $settingPath => $expectedValue) {
+            $actualValue = $actualEnvSettings->get($settingPath, null, '/');
+            if ($actualValue !== $expectedValue) {
+                if (is_array($expectedValue)) {
+                    $expectedValue = serialize($expectedValue);
+                    $actualValue = serialize($actualValue);
+                }
+                $errors[$settingPath . '_incorrect'] = [
+                    'message' => sprintf('The value for %s (%s) does not match %s', $settingPath, $actualValue, $expectedValue)
+                ];
+            }
+        }
+
+        if (count($errors)) {
+            $errorMessages = array_map(function ($error) {
+                return '<error>' . $error . '</error>';
+            }, array_column($errors, 'message'));
+            $this->output->writeln(implode(PHP_EOL, $errorMessages));
+
+            $confirmation = new ConfirmationQuestion('<question>We can try to automatically fix these errors. Is that okay? </question> <comment>[Y/n]</comment> ', true);
+            if ($this->questionHelper->ask($input, $output, $confirmation)) {
+                $this->output->writeln('Fixing settings in env.php');
+                $actualEnvSettings->set($envSettings->all(), null, '/');
+                file_put_contents('app/etc/env.php', '<?php return ' . VarExporter::export($actualEnvSettings->all()) . ';');
+                $confirmation = new ConfirmationQuestion('<question>Do you want to run bin/magento app:config:import now? </question> <comment>[Y/n]</comment> ', true);
+                if ($this->questionHelper->ask($input, $output, $confirmation)) {
+                    $process = new Process(['bin/magento', 'app:config:import']);
+                    $process->run();
+                    if (!$process->isSuccessful()) {
+                        $this->output->writeln('<error>' . $process->getOutput() . '</error>');
+                    } else {
+                        $this->output->writeln('<info>' . $process->getOutput() . '</info>');
+                    }
+                }
+            }
+        } else {
+            $this->output->writeln('<info>No errors found, your Varnish configuration is feeling awesome.</info>');
+        }
+
+        return 0;
+    }
+
+    private function isHypernode(): bool
+    {
+        return (bool) `which hypernode-systemctl`;
+    }
+
+}
