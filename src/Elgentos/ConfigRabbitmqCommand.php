@@ -154,18 +154,6 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
 
             $confirmation = new ConfirmationQuestion('<question>We can try to automatically fix these errors. Is that okay? </question> <comment>[Y/n]</comment> ', true);
             if ($questionHelper->ask($input, $output, $confirmation)) {
-                foreach ($errors as $key => $error) {
-                    if (isset($error['fix'])) {
-                        $this->output->writeln(sprintf('Attempting to fix error ID %s by running %s', $key, $error['fix']));
-                        $process = new Process(explode(' ', $error['fix']));
-                        $process->run();
-                        if (!$process->isSuccessful()) {
-                            $this->output->writeln('<error>' . $process->getOutput() . '</error>');
-                        } else {
-                            $this->output->writeln('<info>' . $process->getOutput() . '</info>');
-                        }
-                    }
-                }
                 $this->output->writeln('Fixing settings in env.php');
                 $actualEnvSettings->set($envSettings->all(), null, '/');
                 file_put_contents('app/etc/env.php', '<?php return ' . VarExporter::export($actualEnvSettings->all()) . ';');
@@ -177,6 +165,19 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
                         $this->output->writeln('<error>' . $process->getOutput() . '</error>');
                     } else {
                         $this->output->writeln('<info>' . $process->getOutput() . '</info>');
+                    }
+                }
+
+                foreach ($errors as $key => $error) {
+                    if (isset($error['fix'])) {
+                        $this->output->writeln(sprintf('Attempting to fix error ID %s by running %s', $key, $error['fix']));
+                        $process = new Process(explode(' ', $error['fix']));
+                        $process->run();
+                        if (!$process->isSuccessful()) {
+                            $this->output->writeln('<error>' . $process->getOutput() . '</error>');
+                        } else {
+                            $this->output->writeln('<info>' . $process->getOutput() . '</info>');
+                        }
                     }
                 }
             }
