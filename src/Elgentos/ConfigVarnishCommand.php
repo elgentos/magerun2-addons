@@ -129,8 +129,7 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
             'system/default/system/full_page_cache/varnish/backend_host' => 'localhost',
             'system/default/system/full_page_cache/varnish/backend_port' => '8080',
             'system/default/system/full_page_cache/varnish/grace_period' => '300',
-            'http_cache_hosts/host' => 'localhost',
-            'http_cache_hosts/port' => '6081',
+            'http_cache_hosts' => ['host' => 'localhost', 'port' => '6081'],
         ]);
 
         foreach ($envSettings->flatten('/') as $settingPath => $expectedValue) {
