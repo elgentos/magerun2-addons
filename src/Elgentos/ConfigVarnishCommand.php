@@ -200,8 +200,6 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
                 }
                 shell_exec('varnishadm vcl.load ' . $vclName . ' /data/web/varnish.vcl');
                 shell_exec('varnishadm vcl.use ' .  $vclName);
-                shell_exec('varnishadm vcl.discard boot');
-                shell_exec('varnishadm vcl.discard hypernode');
             }
         }
 
