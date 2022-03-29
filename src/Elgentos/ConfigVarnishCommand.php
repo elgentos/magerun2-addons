@@ -123,19 +123,6 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
             }
         }
 
-        if ($this->isHypernode()) {
-            $confirmation = new ConfirmationQuestion('<question>Do you want to generate & activate the VCL? </question> <comment>[Y/n]</comment> ', true);
-            if ($this->questionHelper->ask($input, $output, $confirmation)) {
-                // Generate and activate VCL
-                shell_exec(sprintf('bin/magento varnish:vcl:generate --export-version %s > /data/web/varnish.vcl', $chosenVarnishVersion));
-                shell_exec('sed -i \'11,17d\' /data/web/varnish.vcl'); // Remove probe
-                shell_exec('varnishadm vcl.load mag2 /data/web/varnish.vcl');
-                shell_exec('varnishadm vcl.use mag2');
-                shell_exec('varnishadm vcl.discard boot');
-                shell_exec('varnishadm vcl.discard hypernode');
-            }
-        }
-
         $actualEnvSettings = include('app/etc/env.php');
         $actualEnvSettings = new Dot($actualEnvSettings);
 
@@ -186,6 +173,23 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
             }
         } else {
             $this->output->writeln('<info>No errors found, your Varnish configuration is feeling awesome.</info>');
+        }
+
+        if ($this->isHypernode()) {
+            $confirmation = new ConfirmationQuestion('<question>Do you want to generate & activate the VCL? </question> <comment>[Y/n]</comment> ', true);
+            if ($this->questionHelper->ask($input, $output, $confirmation)) {
+                // Generate and activate VCL
+                shell_exec(sprintf('bin/magento varnish:vcl:generate --export-version %s > /data/web/varnish.vcl', $chosenVarnishVersion));
+                if ($chosenVarnishVersion === 4) {
+                    shell_exec('sed -i \'11,17d\' /data/web/varnish.vcl'); // Remove probe
+                } elseif ($chosenVarnishVersion === 6) {
+                    shell_exec('sed -i \'12,18d\' /data/web/varnish.vcl'); // Remove probe
+                }
+                shell_exec('varnishadm vcl.load mag2 /data/web/varnish.vcl');
+                shell_exec('varnishadm vcl.use mag2');
+                shell_exec('varnishadm vcl.discard boot');
+                shell_exec('varnishadm vcl.discard hypernode');
+            }
         }
 
         return 0;
