@@ -80,6 +80,13 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
 
         // Hypernode specific configuration
         if ($this->isHypernode()) {
+            $question = new ChoiceQuestion(
+                'Which Varnish version do you want to run? [4]',
+                [4,6],
+                4
+            );
+            $chosenVarnishVersion = $this->questionHelper->ask($input, $output, $question);
+
             $varnishEnabled = trim(shell_exec('hypernode-systemctl settings varnish_enabled 2>&1'));
             if (!str_contains($varnishEnabled, 'True')) {
                 $errors['varnish_is_disabled'] = [
@@ -87,16 +94,16 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
                     'fix' => 'hypernode-systemctl settings varnish_enabled True'
                 ];
             }
-            $varnishVersion = trim(shell_exec('hypernode-systemctl settings varnish_version 2>&1'));
-            preg_match('/\d/', $varnishVersion, $matches);
+            $varnishVersionResult = trim(shell_exec('hypernode-systemctl settings varnish_version 2>&1'));
+            preg_match('/\d/', $varnishVersionResult, $matches);
             $currentVarnishVersion = 0;
             if (isset($matches[0])) {
                 $currentVarnishVersion = (int) $matches[0];
             }
-            if ($currentVarnishVersion !== $varnishVersion) {
+            if ($currentVarnishVersion !== $chosenVarnishVersion) {
                 $errors['varnish_wrong_version'] = [
-                    'message' => sprintf('You are running Varnish version %s, you need version %s.', $currentVarnishVersion, $varnishVersion),
-                    'fix' => sprintf('hypernode-systemctl settings varnish_version %s.x', $varnishVersion)
+                    'message' => sprintf('You are running Varnish version %s, you need version %s.', $currentVarnishVersion, $chosenVarnishVersion),
+                    'fix' => sprintf('hypernode-systemctl settings varnish_version %s.x', $chosenVarnishVersion)
                 ];
             }
 
@@ -120,7 +127,7 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
             $confirmation = new ConfirmationQuestion('<question>Do you want to generate & activate the VCL? </question> <comment>[Y/n]</comment> ', true);
             if ($this->questionHelper->ask($input, $output, $confirmation)) {
                 // Generate and activate VCL
-                shell_exec('bin/magento varnish:vcl:generate > /data/web/varnish.vcl');
+                shell_exec(sprintf('bin/magento varnish:vcl:generate --export-version %s > /data/web/varnish.vcl', $chosenVarnishVersion));
                 shell_exec('sed -i \'11,17d\' /data/web/varnish.vcl'); // Remove probe
                 shell_exec('varnishadm vcl.load mag2 /data/web/varnish.vcl');
                 shell_exec('varnishadm vcl.use mag2');
