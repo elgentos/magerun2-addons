@@ -107,16 +107,16 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
         }
 
         if ($this->isHypernode()) {
-            // Generate and activate VCL
-            shell_exec('bin/magento varnish:vcl:generate > /data/web/varnish.vcl');
-            shell_exec('sed -i \'11,17d\' /data/web/varnish.vcl'); // Remove probe
-            shell_exec('varnishadm vcl.load mag2 /data/web/varnish.vcl');
-            shell_exec('varnishadm vcl.use mag2');
-            shell_exec('varnishadm vcl.discard boot');
-            shell_exec('varnishadm vcl.discard hypernode');
-
-            // Set http-cache-hosts to automatically flush Varnish when Magento cache flushes
-            shell_exec('bin/magento setup:config:set --http-cache-hosts=127.0.0.1:6081 -n');
+            $confirmation = new ConfirmationQuestion('<question>Do you want to generate & activate the VCL? </question> <comment>[Y/n]</comment> ', true);
+            if ($this->questionHelper->ask($input, $output, $confirmation)) {
+                // Generate and activate VCL
+                shell_exec('bin/magento varnish:vcl:generate > /data/web/varnish.vcl');
+                shell_exec('sed -i \'11,17d\' /data/web/varnish.vcl'); // Remove probe
+                shell_exec('varnishadm vcl.load mag2 /data/web/varnish.vcl');
+                shell_exec('varnishadm vcl.use mag2');
+                shell_exec('varnishadm vcl.discard boot');
+                shell_exec('varnishadm vcl.discard hypernode');
+            }
         }
 
         $actualEnvSettings = include('app/etc/env.php');
@@ -129,6 +129,8 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
             'system/default/system/full_page_cache/varnish/backend_host' => 'localhost',
             'system/default/system/full_page_cache/varnish/backend_port' => '8080',
             'system/default/system/full_page_cache/varnish/grace_period' => '300',
+            'http_cache_hosts/host' => 'localhost',
+            'http_cache_hosts/port' => '6081',
         ]);
 
         foreach ($envSettings->flatten('/') as $settingPath => $expectedValue) {
