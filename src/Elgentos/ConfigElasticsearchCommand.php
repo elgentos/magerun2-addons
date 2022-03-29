@@ -13,6 +13,12 @@ use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Process\Process;
 
+if (!function_exists('str_contains')) {
+    function str_contains($haystack, $needle) {
+        return $needle !== '' && mb_strpos($haystack, $needle) !== false;
+    }
+}
+
 class ConfigElasticsearchCommand extends AbstractMagentoCommand
 {
     /**
@@ -92,12 +98,20 @@ class ConfigElasticsearchCommand extends AbstractMagentoCommand
         // Find out how to fetch the process result. It looks like it's async, can't get it
         // through Symfony/Process or shell_exec() or exec()
         if ($this->isHypernode()) {
-            $this->output->writeln('<comment>Make sure Elasticsearch is enabled on this Hypernode. The current setting is:</comment>');
-            shell_exec('hypernode-systemctl settings elasticsearch_enabled');
-            $this->output->writeln('<comment>If Elasticsearch is disabled, please run hypernode-systemctl settings elasticsearch_enabled True</comment>');
-            $this->output->writeln('<comment>Make sure the Elasticsearch is correct. You need version ' . $elasticVersion . '. The current version is:</comment>');
-            shell_exec('hypernode-systemctl settings elasticsearch_version');
-            $this->output->writeln('<comment>If the versions do not match, please run hypernode-systemctl settings elasticsearch_version ' . $elasticVersion . '.x</comment>');
+            $elasticSearchEnabled = trim(shell_exec('hypernode-systemctl settings elasticsearch_enabled 2>&1'));
+            if (!str_contains($elasticSearchEnabled, 'True')) {
+                $this->output->writeln('<error>Elasticsearch is disabled, please run hypernode-systemctl settings elasticsearch_enabled True</error>');
+            }
+            $elasticSearchVersion = trim(shell_exec('hypernode-systemctl settings elasticsearch_version 2>&1'));
+            preg_match('/\d/', $elasticSearchVersion, $matches);
+            $currentElasticVersion = 0;
+            if (isset($matches[0])) {
+                $currentElasticVersion = (int) $matches[0];
+            }
+            if ($currentElasticVersion !== $elasticVersion) {
+                $this->output->writeln(sprintf('<error>You are running ElasticSearch version %s, you need version %s. Please run hypernode-systemctl settings elasticsearch_version %s.x</error>', $currentElasticVersion, $elasticVersion, $elasticVersion));
+            }
+
         }
 
         // Check config settings
