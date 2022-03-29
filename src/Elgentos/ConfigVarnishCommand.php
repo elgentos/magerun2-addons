@@ -190,6 +190,7 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
         if ($this->isHypernode()) {
             $confirmation = new ConfirmationQuestion('<question>Do you want to generate & activate the VCL? </question> <comment>[Y/n]</comment> ', true);
             if ($this->questionHelper->ask($input, $output, $confirmation)) {
+                $vclName = 'mag' . date('U');
                 // Generate and activate VCL
                 shell_exec(sprintf('bin/magento varnish:vcl:generate --export-version %s > /data/web/varnish.vcl', $chosenVarnishVersion));
                 if ($chosenVarnishVersion === 4) {
@@ -197,8 +198,8 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
                 } elseif ($chosenVarnishVersion === 6) {
                     shell_exec('sed -i \'12,18d\' /data/web/varnish.vcl'); // Remove probe
                 }
-                shell_exec('varnishadm vcl.load mag2 /data/web/varnish.vcl');
-                shell_exec('varnishadm vcl.use mag2');
+                shell_exec('varnishadm vcl.load ' . $vclName . ' /data/web/varnish.vcl');
+                shell_exec('varnishadm vcl.use ' .  $vclName);
                 shell_exec('varnishadm vcl.discard boot');
                 shell_exec('varnishadm vcl.discard hypernode');
             }
