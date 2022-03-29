@@ -103,7 +103,7 @@ class ConfigVarnishCommand extends AbstractMagentoCommand
             if ($currentVarnishVersion !== $chosenVarnishVersion) {
                 $errors['varnish_wrong_version'] = [
                     'message' => sprintf('You are running Varnish version %s, you need version %s.', $currentVarnishVersion, $chosenVarnishVersion),
-                    'fix' => sprintf('hypernode-systemctl settings varnish_version %s.x', $chosenVarnishVersion)
+                    'fix' => sprintf('hypernode-systemctl settings varnish_version %s.0', $chosenVarnishVersion)
                 ];
             }
 
