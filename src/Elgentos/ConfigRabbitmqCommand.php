@@ -119,7 +119,8 @@ class ConfigRabbitmqCommand extends AbstractMagentoCommand
                     'port' => '5672',
                     'user' => 'guest',
                     'password' => 'guest',
-                    'virtualhost' => '/'
+                    'virtualhost' => '/',
+                    'ssl' => false
                 ],
                 'consumers_wait_for_messages' => 0,
             ]
