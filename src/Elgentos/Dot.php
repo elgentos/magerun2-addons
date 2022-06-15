@@ -508,7 +508,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  int|string $key
      * @return bool
      */
-    public function offsetExists($key)
+    public function offsetExists(mixed $key) : bool
     {
         return $this->has($key);
     }
@@ -519,7 +519,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  int|string $key
      * @return mixed
      */
-    public function offsetGet($key, $delimiter = '.')
+    public function offsetGet(mixed $key, $delimiter = '.') : mixed
     {
         return $this->get($key, null, $delimiter);
     }
@@ -530,7 +530,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param int|string|null $key
      * @param mixed           $value
      */
-    public function offsetSet($key, $value, $delimiter = '.')
+    public function offsetSet(mixed $key, mixed $value, $delimiter = '.') : void
     {
         if (is_null($key)) {
             $this->items[] = $value;
@@ -546,7 +546,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      *
      * @param int|string $key
      */
-    public function offsetUnset($key)
+    public function offsetUnset(mixed $key) : void
     {
         $this->delete($key);
     }
@@ -563,7 +563,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      * @param  int|string|null $key
      * @return int
      */
-    public function count($key = null, $delimiter = '.')
+    public function count($key = null, $delimiter = '.') : int
     {
         return count($this->get($key, null, $delimiter));
     }
@@ -579,6 +579,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      *
      * @return \ArrayIterator
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         return new ArrayIterator($this->items);
@@ -595,7 +596,7 @@ class Dot implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
      *
      * @return array
      */
-    public function jsonSerialize()
+    public function jsonSerialize() : mixed
     {
         return $this->items;
     }
