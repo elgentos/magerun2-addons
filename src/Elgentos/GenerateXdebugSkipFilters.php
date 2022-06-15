@@ -79,7 +79,19 @@ class GenerateXdebugSkipFilters extends AbstractMagentoCommand
             return stripos($file, 'Interceptor');
         });
 
-        $confirmation = new ConfirmationQuestion('<question>Do you want to skip Interceptors in Xdebug stepping (' . count($interceptors) . ' proxies found)?</question> <comment>[Y/n]</comment> ', true);
+        $coreInterceptors = array_filter(explode(PHP_EOL, shell_exec('find vendor/magento -type f')), static function ($file) {
+            return stripos($file, 'Interceptor');
+        });
+
+        $confirmation = new ConfirmationQuestion('<question>Do you want to skip core Interceptors in Xdebug stepping (' . count($coreInterceptors) . ' core interceptors found)?</question> <comment>[Y/n]</comment> ', true);
+        if ($questionHelper->ask($input, $output, $confirmation)) {
+            foreach ($coreInterceptors as $interceptor) {
+                $skippedFiles->addChild('skipped_file')->addAttribute('file', '$PROJECT_DIR$/' . $interceptor);
+                $i++;
+            }
+        }
+
+        $confirmation = new ConfirmationQuestion('<question>Do you want to skip generated Interceptors in Xdebug stepping (' . count($interceptors) . ' generated interceptors found)?</question> <comment>[Y/n]</comment> ', true);
         if ($questionHelper->ask($input, $output, $confirmation)) {
             foreach ($interceptors as $interceptor) {
                 $skippedFiles->addChild('skipped_file')->addAttribute('file', '$PROJECT_DIR$/' . $interceptor);
@@ -91,7 +103,7 @@ class GenerateXdebugSkipFilters extends AbstractMagentoCommand
             return stripos($file, 'Proxy');
         });
 
-        $confirmation = new ConfirmationQuestion('<question>Do you want to skip Proxies in Xdebug stepping (' . count($proxies) . ' proxies found)?</question> <comment>[Y/n]</comment> ', true);
+        $confirmation = new ConfirmationQuestion('<question>Do you want to skip generated Proxies in Xdebug stepping (' . count($proxies) . ' proxies found)?</question> <comment>[Y/n]</comment> ', true);
         if ($questionHelper->ask($input, $output, $confirmation)) {
             foreach ($proxies as $proxy) {
                 $skippedFiles->addChild('skipped_file')->addAttribute('file', '$PROJECT_DIR$/' . $proxy);
