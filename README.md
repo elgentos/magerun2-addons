@@ -25,6 +25,12 @@ Here's the easiest:
 Commands
 --------
 
+#### Checking for weak admin credentials
+
+`n98-magerun hypernode:crack:admin-passwords -f -r best64 vendors special`
+
+Check your site for weak admin credentials by attempting to brute force the password with popular password / variations.
+
 #### Configure ElasticSearch
 
 Using this command you can check and optionally configure the ElasticSearch configuration in Magento. Supports ElasticSuite too. Default values might be opinionated.
