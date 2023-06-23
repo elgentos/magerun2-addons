@@ -47,7 +47,6 @@ class Generator
             $words[]       = substr($email, 0, strpos($email, '@'));
             $words[]       = preg_replace('~[^a-zA-Z]~', '', $primaryDomain);
             $words[]       = $primaryDomain;
-            break;
         }
 
         foreach ($this->stores as $store) {
