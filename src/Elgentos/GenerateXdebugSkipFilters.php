@@ -118,6 +118,8 @@ class GenerateXdebugSkipFilters extends AbstractMagentoCommand
         file_put_contents('.idea/php.xml', $xmlDocument->saveXML());
 
         $output->writeln('<info>Wrote ' . $i . ' filenames to the PHP Debug Step Filter configuration</info>');
+
+        return 0;
     }
 
 
