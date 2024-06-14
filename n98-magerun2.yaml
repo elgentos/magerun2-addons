@@ -5,6 +5,7 @@ autoloaders:
 commands:
   customCommands:
     - Elgentos\AdminPasswordCommand
+    - Elgentos\ListDbTablesBySizeCommand
     - Elgentos\IndexReindexPartialCommand
     - Elgentos\DevEventsFireCommand
     - Elgentos\GenerateXdebugSkipFilters

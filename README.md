@@ -120,6 +120,24 @@ It is also possible to give command line arguments. These are '--event' (-e for 
      - object product: `Magento\Catalog\Model\Product` ID 1337
      - testparam: testvalue
 
+#### List Database Tables by Size and Defined Status
+
+This command lets you see an overview of all tables in the Magento database, their size and whether they are defined or not. You can filter the undefined tables - these can possible be removed. Always create a backup before removing tables!
+
+```
+$ magerun2 elgentos:db:show:tables-size
+Description:
+  Shows all tables in the database, their sizes, and indicates if they are defined in db_schema.xml
+
+Usage:
+  elgentos:db:show:tables-size [options]
+
+Options:
+      --only-undefined                    Only show tables which are not defined
+```
+
+Thanks to Francis Gallagher for the initial code.
+
 #### Reindex Partially
 
 This command lets you reindex any indexer partially, as long as the indexer implements `executeList` correctly.
