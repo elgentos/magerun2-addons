@@ -54,7 +54,7 @@ class ListDbTablesBySizeCommand extends AbstractDatabaseCommand
 
         // Retrieve table sizes
         $sql = "
-            SELECT table_name,
+            SELECT table_name as table_name,
                    ROUND(((data_length + index_length) / 1024 / 1024), 2) AS size_mb
             FROM information_schema.TABLES
             WHERE table_schema = DATABASE()
