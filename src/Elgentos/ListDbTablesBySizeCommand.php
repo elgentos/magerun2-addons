@@ -28,9 +28,22 @@ class ListDbTablesBySizeCommand extends AbstractDatabaseCommand
             ->setDescription('Shows all tables in the database, their sizes, and indicates if they are defined in db_schema.xml')
             ->addOption(
                 'only-undefined',
-                null,
+                'u',
                 InputOption::VALUE_NONE,
                 'Only show tables which are not defined'
+            )
+            ->addOption(
+                'order',
+                'o',
+                InputOption::VALUE_OPTIONAL,
+                'Order by size or name',
+                'size'
+            )
+            ->addOption(
+                'direction',
+                'd',
+                InputOption::VALUE_OPTIONAL,
+                'Order direction'
             );
     }
 
@@ -52,13 +65,25 @@ class ListDbTablesBySizeCommand extends AbstractDatabaseCommand
         $dbHelper = $this->getDatabaseHelper();
         $connection =  $dbHelper->getConnection($output, true);
 
+        $order = match (strtolower($input->getOption('order'))) {
+            'size' => 'size_mb',
+            'name' => 'table_name',
+            default => 'size_mb'
+        };
+
+        $direction = match(strtolower($input->getOption('direction') ?? '')) {
+            'desc' => 'desc',
+            'asc' => 'asc',
+            default => ($order == 'size_mb' ? 'desc' : 'asc')
+        };
+
         // Retrieve table sizes
         $sql = "
             SELECT table_name as table_name,
                    ROUND(((data_length + index_length) / 1024 / 1024), 2) AS size_mb
             FROM information_schema.TABLES
             WHERE table_schema = DATABASE()
-            ORDER BY size_mb DESC;
+            ORDER BY $order $direction;
         ";
         $databaseTables = $connection->query($sql)->fetchAll(\PDO::FETCH_ASSOC);
 
