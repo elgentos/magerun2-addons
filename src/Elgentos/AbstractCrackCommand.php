@@ -62,7 +62,7 @@ abstract class AbstractCrackCommand extends AbstractMagentoCommand
         ;
     }
 
-    protected function initialize(InputInterface $input, OutputInterface $output)
+    protected function initialize(InputInterface $input, OutputInterface $output): void
     {
         parent::initialize($input, $output);
 
@@ -114,7 +114,7 @@ abstract class AbstractCrackCommand extends AbstractMagentoCommand
         return $files;
     }
 
-    public function getHelp()
+    public function getHelp(): string
     {
         $wordlists = implode(', ', $this->getInstalledWordlists());
         $rules     = implode(', ', $this->getInstalledRules());
