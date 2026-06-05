@@ -156,7 +156,57 @@ Help:
   Reindex partially by inputting ids [elgentos]
 ``` 
 
-    
+#### Collect missing translations
+
+Collects every translatable phrase (`__()` in PHP, `.phtml`, layout XML and JS) from a directory or the
+whole codebase, then reports the ones that have **no** translation for a given locale. It compares against the
+fully merged frontend translation map for the emulated store — module/theme/language-pack CSVs *and* DB
+(inline) translations — so the result is exactly what is still untranslated on the storefront. Output is a
+ready-to-fill Magento i18n CSV (`"phrase",""`). No extension install needed.
+
+This is a magerun2 reimplementation of [experius/module-missing-translations](https://github.com/experius/Magento-2-Module-Experius-MissingTranslations).
+
+```bash
+$ magerun2 i18n:collect-missing --help
+
+Usage:
+  i18n:collect-missing [options] [--] [<directory>]
+
+Arguments:
+  directory                 Directory (or comma-separated list of directories) to parse. Not needed when --magento is set.
+
+Options:
+  -m, --magento             Parse the whole Magento codebase (BP) instead of a directory.
+  -l, --locale=LOCALE       Locale to check, e.g. nl_NL.
+  -s, --store=STORE         Store id or code to emulate for theme/pack/DB translations (default: default store view).
+  -o, --output=OUTPUT       Output CSV path. Use "-" for stdout. Default: <cwd>/i18n-missing_<locale>.csv
+  -t, --translate           If the "claude" CLI is installed, one-shot translate the CSV into <output>.translated.csv
+```
+
+With `--translate`, after the missing-phrases CSV is written the command checks for the [`claude` CLI](https://docs.claude.com/en/docs/claude-code)
+in your `PATH`. If present, it pipes the CSV through `claude -p` and writes a filled-in copy to
+`<output>.translated.csv`, preserving Magento placeholders (`%1`, `%2`, …) and leaving non-UI/technical strings
+untranslated. The original CSV is left untouched. If `claude` is not installed, the step is skipped with a notice.
+
+Examples:
+
+```bash
+# Whole codebase, default store, written to ./i18n-missing_nl_NL.csv
+$ magerun2 i18n:collect-missing --magento --locale=nl_NL
+
+# A single module/theme, emulating a specific store view
+$ magerun2 i18n:collect-missing app/design/frontend/Acme/default --locale=de_DE --store=acme_de
+
+# Multiple directories at once (comma-separated, results merged & de-duplicated)
+$ magerun2 i18n:collect-missing app/code/Acme,app/design/frontend/Acme/default --locale=nl_NL
+
+# Pipe the CSV straight to a file (diagnostics go to stderr)
+$ magerun2 i18n:collect-missing --magento --locale=fr_FR --output=- > missing_fr.csv
+
+# Collect AND auto-translate with the claude CLI -> ./i18n-missing_nl_NL.translated.csv
+$ magerun2 i18n:collect-missing --magento --locale=nl_NL --translate
+```
+
 Credits due where credits due
 --------
 

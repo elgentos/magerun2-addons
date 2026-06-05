@@ -13,6 +13,7 @@ commands:
     - Elgentos\ConfigRabbitmqCommand
     - Elgentos\ConfigRedisCommand
     - Elgentos\ConfigVarnishCommand
+    - Elgentos\CollectMissingTranslationsCommand
 
 passwordCracker:
   rulesDirs:
