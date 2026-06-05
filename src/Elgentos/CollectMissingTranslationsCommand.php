@@ -3,7 +3,6 @@
 namespace Elgentos;
 
 use Magento\Framework\App\ObjectManager;
-use Magento\Setup\Module\I18n\ServiceLocator as I18nServiceLocator;
 use N98\Magento\Command\AbstractMagentoCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -64,6 +63,18 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
                 't',
                 InputOption::VALUE_NONE,
                 'After collecting, if the "claude" CLI is installed, one-shot translate the CSV via "claude -p" into <output>.translated.csv'
+            )
+            ->addOption(
+                'exclude',
+                'x',
+                InputOption::VALUE_REQUIRED,
+                'Comma-separated path substrings to skip (case-insensitive), e.g. "/sample-data/,/Setup/Patch/".'
+            )
+            ->addOption(
+                'include-tests',
+                null,
+                InputOption::VALUE_NONE,
+                'Do not auto-exclude test/dev directories (by default dev/tests, Test/, tests/ and _files/ are skipped).'
             );
     }
 
@@ -102,6 +113,21 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             if (!is_dir($directory)) {
                 $err->writeln(sprintf('<error>Directory "%s" does not exist.</error>', $directory));
                 return 1;
+            }
+        }
+
+        // Build the (lower-cased) exclude substrings: test/dev dirs by default, plus --exclude.
+        $excludes = [];
+        if (!$input->getOption('include-tests')) {
+            $excludes = ['/dev/tests/', '/test/', '/tests/', '/_files/'];
+        }
+        $excludeOption = $input->getOption('exclude');
+        if ($excludeOption) {
+            foreach (explode(',', $excludeOption) as $pattern) {
+                $pattern = strtolower(trim($pattern));
+                if ($pattern !== '') {
+                    $excludes[] = $pattern;
+                }
             }
         }
 
@@ -157,7 +183,7 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             // Collect every translatable phrase from each directory and merge (unique).
             $phraseSet = [];
             foreach ($directories as $directory) {
-                foreach ($this->collectPhrases($directory) as $phrase) {
+                foreach ($this->collectPhrases($directory, $excludes, $err) as $phrase) {
                     $phraseSet[$phrase] = true;
                 }
             }
@@ -337,35 +363,99 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
 
     /**
      * Collect every translatable phrase under $directory using Magento's own i18n
-     * dictionary generator, then read the phrases back as plain strings.
+     * parser adapters, but parse one file at a time so a single unparseable file
+     * (e.g. a test with __('') or __($var)) is skipped with a warning instead of
+     * aborting the whole run — which is what the monolithic core Generator does.
      *
      * @param string $directory
+     * @param string[] $excludes Lower-cased path substrings; matching files are skipped.
+     * @param OutputInterface $err Stream for skip warnings.
      * @return string[] Unique source phrases.
      */
-    private function collectPhrases(string $directory): array
+    private function collectPhrases(string $directory, array $excludes, OutputInterface $err): array
     {
-        $tmpFile = tempnam(sys_get_temp_dir(), 'magerun_i18n_') ?: (sys_get_temp_dir() . '/magerun_i18n_' . getmypid() . '.csv');
+        $objectManager = ObjectManager::getInstance();
 
-        try {
-            $generator = I18nServiceLocator::getDictionaryGenerator();
-            $generator->generate($directory, $tmpFile, false);
+        /** @var \Magento\Setup\Module\I18n\Dictionary\Options\ResolverFactory $resolverFactory */
+        $resolverFactory = $objectManager->get(\Magento\Setup\Module\I18n\Dictionary\Options\ResolverFactory::class);
+        $optionResolver = $resolverFactory->create($directory, false);
 
-            /** @var \Magento\Setup\Module\I18n\Dictionary\Loader\File\Csv $loader */
-            $loader = ObjectManager::getInstance()->get(\Magento\Setup\Module\I18n\Dictionary\Loader\File\Csv::class);
-            $dictionary = $loader->load($tmpFile);
+        /** @var \Magento\Setup\Module\I18n\FilesCollector $filesCollector */
+        $filesCollector = $objectManager->get(\Magento\Setup\Module\I18n\FilesCollector::class);
 
-            $phrases = [];
-            foreach ($dictionary->getPhrases() as $phrase) {
-                $phrases[$phrase->getPhrase()] = true;
+        $adapters = [
+            'php'  => $objectManager->get(\Magento\Setup\Module\I18n\Parser\Adapter\Php::class),
+            'html' => $objectManager->get(\Magento\Setup\Module\I18n\Parser\Adapter\Html::class),
+            'js'   => $objectManager->get(\Magento\Setup\Module\I18n\Parser\Adapter\Js::class),
+            'xml'  => $objectManager->get(\Magento\Setup\Module\I18n\Parser\Adapter\Xml::class),
+        ];
+
+        $phrases = [];
+        $skipped = [];
+        $excluded = 0;
+        foreach ($optionResolver->getOptions() as $option) {
+            $type = $option['type'] ?? null;
+            if ($type === null || !isset($adapters[$type])) {
+                continue;
             }
-            return array_keys($phrases);
-        } catch (\UnexpectedValueException $e) {
-            // Generator throws this when zero phrases are found.
-            return [];
-        } finally {
-            if (is_file($tmpFile)) {
-                @unlink($tmpFile);
+            $adapter = $adapters[$type];
+            $files = $filesCollector->getFiles($option['paths'], $option['fileMask'] ?? false);
+            foreach ($files as $file) {
+                if ($excludes && $this->isExcluded($file, $excludes)) {
+                    $excluded++;
+                    continue;
+                }
+                try {
+                    $adapter->parse($file);
+                    foreach ($adapter->getPhrases() as $phraseData) {
+                        $phrase = $phraseData['phrase'] ?? '';
+                        if ($phrase !== '') {
+                            $phrases[$phrase] = true;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $skipped[$file] = $e->getMessage();
+                    $err->writeln(
+                        sprintf('<comment>Skipped %s: %s</comment>', $file, $e->getMessage()),
+                        OutputInterface::VERBOSITY_VERBOSE
+                    );
+                }
             }
         }
+
+        if ($skipped) {
+            $err->writeln(sprintf(
+                '<comment>Skipped %d unparseable file(s) under %s (run with -v to list them).</comment>',
+                count($skipped),
+                $directory
+            ));
+        }
+        if ($excluded > 0) {
+            $err->writeln(sprintf(
+                '<comment>Excluded %d file(s) under %s matching the exclude patterns.</comment>',
+                $excluded,
+                $directory
+            ));
+        }
+
+        return array_keys($phrases);
+    }
+
+    /**
+     * Whether a file path matches any (lower-cased) exclude substring.
+     *
+     * @param string $file
+     * @param string[] $excludes
+     * @return bool
+     */
+    private function isExcluded(string $file, array $excludes): bool
+    {
+        $haystack = strtolower(str_replace(DIRECTORY_SEPARATOR, '/', $file));
+        foreach ($excludes as $needle) {
+            if ($needle !== '' && strpos($haystack, $needle) !== false) {
+                return true;
+            }
+        }
+        return false;
     }
 }

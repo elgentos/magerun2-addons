@@ -181,7 +181,13 @@ Options:
   -s, --store=STORE         Store id or code to emulate for theme/pack/DB translations (default: default store view).
   -o, --output=OUTPUT       Output CSV path. Use "-" for stdout. Default: <cwd>/i18n-missing_<locale>.csv
   -t, --translate           If the "claude" CLI is installed, one-shot translate the CSV into <output>.translated.csv
+  -x, --exclude=EXCLUDE     Comma-separated path substrings to skip (case-insensitive), e.g. "/sample-data/,/Setup/Patch/".
+      --include-tests       Do not auto-exclude test/dev directories.
 ```
+
+Files are parsed one at a time, so a single unparseable file (e.g. a test containing `__('')` or `__($var)`) is
+skipped with a warning instead of aborting the whole run. Test/dev directories (`dev/tests`, `Test/`, `tests/`,
+`_files/`) are excluded by default — pass `--include-tests` to parse them too, and `--exclude` to skip extra paths.
 
 With `--translate`, after the missing-phrases CSV is written the command checks for the [`claude` CLI](https://docs.claude.com/en/docs/claude-code)
 in your `PATH`. If present, it pipes the CSV through `claude -p` and writes a filled-in copy to
