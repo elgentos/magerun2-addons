@@ -75,6 +75,13 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
                 null,
                 InputOption::VALUE_NONE,
                 'Do not auto-exclude test/dev directories (by default dev/tests, Test/, tests/ and _files/ are skipped).'
+            )
+            ->addOption(
+                'types',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Comma-separated phrase sources to collect: php (__() calls), js, html, xml (config/UI labels). Default: php,js,html,xml. Use --types=php for __() only.',
+                'php,js,html,xml'
             );
     }
 
@@ -131,6 +138,18 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             }
         }
 
+        // Which phrase sources to collect (php/js/html/xml).
+        $validTypes = ['php', 'js', 'html', 'xml'];
+        $types = array_values(array_filter(
+            array_map('trim', explode(',', strtolower((string)$input->getOption('types')))),
+            'strlen'
+        ));
+        $types = array_values(array_intersect($validTypes, $types));
+        if (!$types) {
+            $err->writeln(sprintf('<error>--types must be a comma-separated subset of: %s</error>', implode(', ', $validTypes)));
+            return 1;
+        }
+
         $objectManager = ObjectManager::getInstance();
 
         // Resolve and emulate the store so theme/pack/DB translations resolve correctly.
@@ -180,14 +199,17 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             $translate->loadData(\Magento\Framework\App\Area::AREA_FRONTEND, true);
             $translations = $translate->getData();
 
-            // Collect every translatable phrase from each directory and merge (unique).
-            $phraseSet = [];
+            // Collect translatable phrases from each directory, tracking which
+            // extension/package each phrase was found in (for the 3rd CSV column).
+            $phraseSources = [];
             foreach ($directories as $directory) {
-                foreach ($this->collectPhrases($directory, $excludes, $err) as $phrase) {
-                    $phraseSet[$phrase] = true;
+                foreach ($this->collectPhrases($directory, $types, $excludes, $err) as $phrase => $sources) {
+                    foreach ($sources as $source => $unused) {
+                        $phraseSources[$phrase][$source] = true;
+                    }
                 }
             }
-            $allPhrases = array_keys($phraseSet);
+            $allPhrases = array_keys($phraseSources);
         } catch (\Throwable $e) {
             $emulation->stopEnvironmentEmulation();
             $err->writeln('<error>' . $e->getMessage() . '</error>');
@@ -225,10 +247,17 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             $outputPath = getcwd() . DIRECTORY_SEPARATOR . 'i18n-missing_' . $locale . '.csv';
         }
 
+        // 3rd column: the extension/package(s) the phrase was found in.
+        $sourceFor = static function (string $phrase) use ($phraseSources): string {
+            $sources = array_keys($phraseSources[$phrase] ?? []);
+            sort($sources, SORT_STRING);
+            return implode('; ', $sources);
+        };
+
         if ($outputPath === '-') {
             $handle = fopen('php://stdout', 'w');
             foreach ($missing as $phrase) {
-                fputcsv($handle, [$phrase, '']);
+                fputcsv($handle, [$phrase, '', $sourceFor($phrase)]);
             }
             // Don't fclose stdout.
         } else {
@@ -238,7 +267,7 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
                 return 1;
             }
             foreach ($missing as $phrase) {
-                fputcsv($handle, [$phrase, '']);
+                fputcsv($handle, [$phrase, '', $sourceFor($phrase)]);
             }
             fclose($handle);
         }
@@ -292,13 +321,14 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
 
         $prompt = sprintf(
             'You are a professional e-commerce translator for Magento storefronts. '
-            . 'The input on stdin is a Magento i18n dictionary CSV. Each row is "source","" '
-            . 'where the second column is an empty translation. Translate every source phrase '
-            . 'from English into %1$s and put the translation in the second column. '
-            . 'Rules: keep the exact same rows in the same order; preserve Magento placeholders '
-            . '(%%1, %%2, %%s, %%d) and HTML tags exactly; keep the CSV format ("source","translation") '
-            . 'with double-quote enclosure; do NOT add a header row, commentary, explanation, or code fences. '
-            . 'Output ONLY the resulting CSV.',
+            . 'The input on stdin is a Magento i18n dictionary CSV. Each row is "source","","module" '
+            . 'where the second column is an empty translation and the optional third column is the '
+            . 'source module/package. Translate every source phrase from English into %1$s and put the '
+            . 'translation in the second column. '
+            . 'Rules: keep the exact same rows in the same order; leave the third column unchanged; '
+            . 'preserve Magento placeholders (%%1, %%2, %%s, %%d) and HTML tags exactly; keep the CSV format '
+            . '("source","translation","module") with double-quote enclosure; do NOT add a header row, '
+            . 'commentary, explanation, or code fences. Output ONLY the resulting CSV.',
             $locale
         );
 
@@ -368,11 +398,12 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
      * aborting the whole run — which is what the monolithic core Generator does.
      *
      * @param string $directory
+     * @param string[] $types Phrase sources to collect (php/js/html/xml).
      * @param string[] $excludes Lower-cased path substrings; matching files are skipped.
      * @param OutputInterface $err Stream for skip warnings.
-     * @return string[] Unique source phrases.
+     * @return array<string, array<string, bool>> Map of phrase => set of source modules/packages.
      */
-    private function collectPhrases(string $directory, array $excludes, OutputInterface $err): array
+    private function collectPhrases(string $directory, array $types, array $excludes, OutputInterface $err): array
     {
         $objectManager = ObjectManager::getInstance();
 
@@ -395,7 +426,7 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
         $excluded = 0;
         foreach ($optionResolver->getOptions() as $option) {
             $type = $option['type'] ?? null;
-            if ($type === null || !isset($adapters[$type])) {
+            if ($type === null || !isset($adapters[$type]) || !in_array($type, $types, true)) {
                 continue;
             }
             $adapter = $adapters[$type];
@@ -405,12 +436,18 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
                     $excluded++;
                     continue;
                 }
+                $source = $this->moduleNameFromPath($file);
                 try {
                     $adapter->parse($file);
                     foreach ($adapter->getPhrases() as $phraseData) {
                         $phrase = $phraseData['phrase'] ?? '';
                         if ($phrase !== '') {
-                            $phrases[$phrase] = true;
+                            if (!isset($phrases[$phrase])) {
+                                $phrases[$phrase] = [];
+                            }
+                            if ($source !== '') {
+                                $phrases[$phrase][$source] = true;
+                            }
                         }
                     }
                 } catch (\Throwable $e) {
@@ -438,7 +475,30 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             ));
         }
 
-        return array_keys($phrases);
+        return $phrases;
+    }
+
+    /**
+     * Derive the extension/package name a file belongs to:
+     *  - app/code/Vendor/Module/...      => "Vendor_Module" (Magento module name)
+     *  - vendor/vendor-name/package/...  => "vendor-name/package" (Composer package)
+     * Returns '' when the path matches neither layout.
+     *
+     * @param string $file
+     * @return string
+     */
+    private function moduleNameFromPath(string $file): string
+    {
+        $path = realpath($file) ?: $file;
+        $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+
+        if (preg_match('#/app/code/([^/]+)/([^/]+)/#', $path, $m)) {
+            return $m[1] . '_' . $m[2];
+        }
+        if (preg_match('#/vendor/([^/]+)/([^/]+)/#', $path, $m)) {
+            return $m[1] . '/' . $m[2];
+        }
+        return '';
     }
 
     /**
