@@ -24,6 +24,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class CollectMissingTranslationsCommand extends AbstractMagentoCommand
 {
+    /** Rows per "claude -p" call; keeps each response under the output-token limit. */
+    private const TRANSLATE_BATCH_SIZE = 150;
+
     protected function configure()
     {
         $this
@@ -323,8 +326,8 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             return;
         }
 
-        $csv = file_get_contents($csvPath);
-        if ($csv === false || trim($csv) === '') {
+        $rows = $this->readCsvRows($csvPath);
+        if (!$rows) {
             $err->writeln('<comment>Nothing to translate (CSV is empty); skipping.</comment>');
             return;
         }
@@ -342,37 +345,48 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             $locale
         );
 
-        $err->writeln(sprintf('<info>Translating %d-line CSV to %s via "%s -p"...</info>', substr_count($csv, "\n"), $locale, $claudeBin));
+        // Translate in batches: a single claude call truncates at its output-token
+        // limit, so large dictionaries must be chunked or rows get dropped.
+        $batches = array_chunk($rows, self::TRANSLATE_BATCH_SIZE);
+        $batchCount = count($batches);
+        $err->writeln(sprintf(
+            '<info>Translating %d row(s) to %s in %d batch(es) of up to %d via "%s -p"...</info>',
+            count($rows),
+            $locale,
+            $batchCount,
+            self::TRANSLATE_BATCH_SIZE,
+            $claudeBin
+        ));
 
-        $descriptors = [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
-        ];
-        $process = proc_open([$claudeBin, '-p', $prompt], $descriptors, $pipes);
-        if (!is_resource($process)) {
-            $err->writeln('<error>Could not start the "claude" process; skipping translation.</error>');
-            return;
-        }
-
-        fwrite($pipes[0], $csv);
-        fclose($pipes[0]);
-        $translated = stream_get_contents($pipes[1]);
-        fclose($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[2]);
-        $exitCode = proc_close($process);
-
-        if ($exitCode !== 0 || $translated === false || trim((string)$translated) === '') {
-            $err->writeln(sprintf('<error>claude exited with code %d; translation skipped.</error>', $exitCode));
-            if (trim((string)$stderr) !== '') {
-                $err->writeln('<comment>' . trim((string)$stderr) . '</comment>');
+        $translated = '';
+        foreach ($batches as $i => $batch) {
+            [$exitCode, $out, $stderr] = $this->runClaude($claudeBin, $prompt, $this->rowsToCsv($batch));
+            if ($exitCode !== 0 || trim($out) === '') {
+                $err->writeln(sprintf(
+                    '<error>claude failed on batch %d/%d (exit %d); stopping with %d row(s) translated so far.</error>',
+                    $i + 1,
+                    $batchCount,
+                    $exitCode,
+                    substr_count($translated, "\n")
+                ));
+                if (trim($stderr) !== '') {
+                    $err->writeln('<comment>' . trim($stderr) . '</comment>');
+                }
+                break;
             }
-            return;
+            // Strip a stray ```csv / ``` fence if the model added one despite instructions.
+            $out = preg_replace('/^```[a-zA-Z]*\R|\R```\s*$/', '', trim($out));
+            $translated .= ($translated === '' ? '' : "\n") . $out;
+            $err->writeln(
+                sprintf('<info>  batch %d/%d done (%d rows)</info>', $i + 1, $batchCount, count($batch)),
+                OutputInterface::VERBOSITY_VERBOSE
+            );
         }
 
-        // Strip a stray ```csv / ``` fence if the model added one despite instructions.
-        $translated = preg_replace('/^```[a-zA-Z]*\R|\R```\s*$/', '', trim($translated));
+        if (trim($translated) === '') {
+            $err->writeln('<error>No translated output produced; leaving original CSV untouched.</error>');
+            return;
+        }
 
         $translatedPath = preg_replace('/\.csv$/i', '', $csvPath) . '.translated.csv';
         if (file_put_contents($translatedPath, rtrim($translated) . "\n") === false) {
@@ -382,6 +396,73 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
 
         $err->writeln(sprintf('<info>Translated CSV written to %s</info>', $translatedPath));
         $err->writeln('<comment>Review it, then import with: magerun2 dev:i18n:... or place it as a language pack CSV.</comment>');
+    }
+
+    /**
+     * Read a CSV file into an array of rows (each row an array of fields).
+     * Handles multi-line quoted fields and skips blank lines.
+     *
+     * @param string $csvPath
+     * @return array<int, array<int, string|null>>
+     */
+    private function readCsvRows(string $csvPath): array
+    {
+        $rows = [];
+        $fh = fopen($csvPath, 'r');
+        if ($fh === false) {
+            return $rows;
+        }
+        while (($row = fgetcsv($fh)) !== false) {
+            if ($row === [null]) { // fgetcsv returns [null] for a blank line
+                continue;
+            }
+            $rows[] = $row;
+        }
+        fclose($fh);
+        return $rows;
+    }
+
+    /**
+     * Serialize rows back to a CSV string (comma-delimited, double-quote enclosed).
+     *
+     * @param array<int, array<int, string|null>> $rows
+     * @return string
+     */
+    private function rowsToCsv(array $rows): string
+    {
+        $tmp = fopen('php://temp', 'r+');
+        foreach ($rows as $row) {
+            fputcsv($tmp, $row);
+        }
+        rewind($tmp);
+        $csv = stream_get_contents($tmp);
+        fclose($tmp);
+        return (string)$csv;
+    }
+
+    /**
+     * Run "claude -p <prompt>" with $stdin piped in.
+     *
+     * @param string $bin
+     * @param string $prompt
+     * @param string $stdin
+     * @return array{0:int,1:string,2:string} [exitCode, stdout, stderr]
+     */
+    private function runClaude(string $bin, string $prompt, string $stdin): array
+    {
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $process = proc_open([$bin, '-p', $prompt], $descriptors, $pipes);
+        if (!is_resource($process)) {
+            return [1, '', 'could not start claude process'];
+        }
+        fwrite($pipes[0], $stdin);
+        fclose($pipes[0]);
+        $out = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[2]);
+        $code = proc_close($process);
+        return [$code, (string)$out, (string)$stderr];
     }
 
     /**

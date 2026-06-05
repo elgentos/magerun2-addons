@@ -203,6 +203,8 @@ With `--translate`, after the missing-phrases CSV is written the command checks 
 in your `PATH`. If present, it pipes the CSV through `claude -p` and writes a filled-in copy to
 `<output>.translated.csv`, preserving Magento placeholders (`%1`, `%2`, …) and leaving non-UI/technical strings
 untranslated. The original CSV is left untouched. If `claude` is not installed, the step is skipped with a notice.
+Translation runs in batches of 150 rows (one `claude -p` call each) so large dictionaries don't get truncated by
+the model's output-token limit.
 
 Examples:
 
