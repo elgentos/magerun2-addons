@@ -184,6 +184,7 @@ Options:
   -x, --exclude=EXCLUDE     Comma-separated path substrings to skip (case-insensitive), e.g. "/sample-data/,/Setup/Patch/".
       --include-tests       Do not auto-exclude test/dev directories.
       --types=TYPES         Comma-separated phrase sources: php (__() calls), js, html, xml (config/UI labels). Default: php,js,html,xml.
+      --no-source           Omit the source column, producing a plain 2-column language-pack CSV.
 ```
 
 The collector mirrors Magento core's `i18n:collect-phrases` and gathers translatable strings from **four** sources,
@@ -191,7 +192,8 @@ not just PHP `__()`: `php` (`__()` calls in `.php`/`.phtml`), `js` (`$.mage.__()
 bindings) and `xml` (`system.xml`/UI config & menu labels). If you only want `__()` phrases, pass `--types=php`.
 
 The output CSV has a **third column** naming the extension/package each phrase was found in — `Vendor_Module` for
-`app/code` modules and `vendor-name/package` for Composer packages (multiple sources are joined with `; `).
+`app/code` modules and `vendor-name/package` for Composer packages (multiple sources are joined with `; `). Pass
+`--no-source` for a plain 2-column CSV ready to drop in as a language pack (`i18n/<vendor>/<pack>/<locale>.csv`).
 
 Files are parsed one at a time, so a single unparseable file (e.g. a test containing `__('')` or `__($var)`) is
 skipped with a warning instead of aborting the whole run. Test/dev directories (`dev/tests`, `Test/`, `tests/`,

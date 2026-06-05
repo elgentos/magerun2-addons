@@ -82,6 +82,12 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
                 InputOption::VALUE_REQUIRED,
                 'Comma-separated phrase sources to collect: php (__() calls), js, html, xml (config/UI labels). Default: php,js,html,xml. Use --types=php for __() only.',
                 'php,js,html,xml'
+            )
+            ->addOption(
+                'no-source',
+                null,
+                InputOption::VALUE_NONE,
+                'Omit the source module/package column, producing a plain 2-column language-pack CSV.'
             );
     }
 
@@ -247,17 +253,21 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
             $outputPath = getcwd() . DIRECTORY_SEPARATOR . 'i18n-missing_' . $locale . '.csv';
         }
 
-        // 3rd column: the extension/package(s) the phrase was found in.
-        $sourceFor = static function (string $phrase) use ($phraseSources): string {
+        // 3rd column: the extension/package(s) the phrase was found in (unless --no-source).
+        $includeSource = !$input->getOption('no-source');
+        $rowFor = static function (string $phrase) use ($phraseSources, $includeSource): array {
+            if (!$includeSource) {
+                return [$phrase, ''];
+            }
             $sources = array_keys($phraseSources[$phrase] ?? []);
             sort($sources, SORT_STRING);
-            return implode('; ', $sources);
+            return [$phrase, '', implode('; ', $sources)];
         };
 
         if ($outputPath === '-') {
             $handle = fopen('php://stdout', 'w');
             foreach ($missing as $phrase) {
-                fputcsv($handle, [$phrase, '', $sourceFor($phrase)]);
+                fputcsv($handle, $rowFor($phrase));
             }
             // Don't fclose stdout.
         } else {
@@ -267,7 +277,7 @@ class CollectMissingTranslationsCommand extends AbstractMagentoCommand
                 return 1;
             }
             foreach ($missing as $phrase) {
-                fputcsv($handle, [$phrase, '', $sourceFor($phrase)]);
+                fputcsv($handle, $rowFor($phrase));
             }
             fclose($handle);
         }
